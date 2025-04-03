@@ -1,3 +1,10 @@
+#include <SPI.h>
+#include <nRF24L01.h>
+#include <RF24.h>
+ 
+RF24 wireless(10, 9);
+const byte address[6] = "00001";
+
 const int button1 = 3,
           button2 = 4,
           button3 = 5,
@@ -38,6 +45,12 @@ const Difficulty HARD   = {{3000, 1000}, 1000};
 
 void setup(){
   initAllPins();
+// Setting up communication
+  wireless.begin();
+  wireless.setChannel(125);
+  wireless.openReadingPipe(1, address);
+  wireless.setPALevel(RF24_PA_LOW);
+  wireless.startListening();
 }
 
 void loop(){
