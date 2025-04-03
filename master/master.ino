@@ -9,6 +9,11 @@ const int MAXPOTENTIOMETERVAL = 1023;
 
 int leds[] = {led1, led2, led3, led4};
 
+// Address for communication
+const byte masterAddress[6] = "00001";
+const byte slaveAddress[6] = "00002";
+
+
 //The difficulies are represented by the interval between 2 LED lighting and the delay the player can push the button
 struct Difficulty {
     int lightingInterval[2];
