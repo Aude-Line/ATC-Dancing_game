@@ -1,7 +1,20 @@
+#include <SPI.h>
+#include <nRF24L01.h>
+#include <RF24.h>
+
+
+// Define radio module with CE, CSN pins
+RF24 wireless(10, 9);  // CE, CSN pins
+
+// Address for communication
+const byte masterAddress[6] = "00001";
+const byte slaveAddress[6] = "00002";
+
 const int led_r = 4
 const int led_g = 5
 const int led_b = 6
 const int led_y = 7
+
 
 #define potentiometer A0
 
@@ -28,12 +41,22 @@ const Difficulty HARD   = {{3000, 1000}, 1000};
 // the setup routine runs once when you press reset:
 void setup() {
   // initialize serial communication at 9600 bits per second:
-  Serial.begin(9600);
-  // set the digital pin as output:
-  pinMode(led_r, OUTPUT);
-  pinMode(led_g, OUTPUT);
-  pinMode(led_b, OUTPUT);
-  pinMode(led_y, OUTPUT);
+Serial.begin(9600);
+    // setting connection
+    wireless.begin();
+    wireless.setChannel(125); // Setting channels
+    wireless.openWritingPipe(slaveAddress); // Master sends to Slave
+    wireless.openReadingPipe(1, masterAddress);  // Master receives from Slave
+    wireless.setPALevel(RF24_PA_LOW); // Set power level (low for short distances)
+    wireless.stopListening(); // Master is the sender initially
+    
+    
+    
+    // set the digital pin as output:
+    pinMode(led_r, OUTPUT);
+    pinMode(led_g, OUTPUT);
+    pinMode(led_b, OUTPUT);
+    pinMode(led_y, OUTPUT);
 }
 
 // the loop routine runs over and over again forever:
