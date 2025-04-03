@@ -25,6 +25,8 @@ const ButtonUnit unit4 = {button4, led4};
 //Define a general vector containg all the system unit
 ButtonUnit units[] = {unit1, unit2, unit3, unit4};
 
+int score = 0;
+
 //The difficulies are represented by the interval between 2 LED lighting and the delay the player can push the button
 struct Difficulty {
     int lightingInterval[2];
