@@ -1,22 +1,31 @@
-int button1 = 3;
-int button2 = 4;
-int button3 = 5;
-int button4 = 6;
-
-int buzzer = 9;
+const int button1 = 3,
+          button2 = 4,
+          button3 = 5,
+          button4 = 6;
 
 //Momentary implementation of pin connected LEDs instead of LED strips connected bc I2C
-int led1 = 10;
-int led2 = 11;
-int led3 = 12; 
-int led4 = 13;
+const int led1 = 10, 
+          led2 = 11, 
+          led3 = 12, 
+          led4 = 13;
 
-//Vector containing all the button used in a module
-int buttons[] = {button1, button2, button3, button4};
+const int buzzer = 9;
 
-int leds[] = {led1, led2, led3, led4};
+//A button unit is characterized by a button and a led
+struct ButtonUnit{
+  const int button; 
+  const int led;
+};
 
-//Each difficulty is associated with the time (s) between two lightings
+const ButtonUnit unit1 = {button1, led1};
+const ButtonUnit unit2 = {button2, led2};
+const ButtonUnit unit3 = {button3, led3};
+const ButtonUnit unit4 = {button4, led4};
+
+//Define a general vector containg all the system unit
+ButtonUnit units[] = {unit1, unit2, unit3, unit4};
+
+//The difficulies are represented by the interval between 2 LED lighting and the delay the player can push the button
 struct Difficulty {
     int lightingInterval[2];
     unsigned long pushingDelay;
@@ -46,34 +55,20 @@ void loop(){
   Initialise the different pins used by the system
 */
 void initAllPins(){
-  initButtons();
-  initLeds();
+  initUnit();
   pinMode(buzzer, OUTPUT);
 }
 
-
-/*
-  Initialise all the buttons of the system as input pin with integrated pullup resistor enable 
-
-  NOTE: the buttons inialisation is based on the global variable "buttons", modify this global variables if less buttons are used
+/* 
+  Initialise all the units of the system 
 */
-void initButtons(){
-  for(int button: buttons){
-      pinMode(button, INPUT_PULLUP); 
+void initUnit(){
+  for(ButtonUnit unit : units){
+      //To spare some resistors for the butons, we used the pin in build pull up resistor
+      pinMode(unit.button, INPUT_PULLUP); 
+      pinMode(unit.led, OUTPUT);
   }
 }
-
-/*
-  Initialise all the leds of the system as output pin 
-
-  NOTE: Must be replaced by the LED strip new version
-*/
-void initLeds(){
-  for(int led: leds){
-    pinMode(led, OUTPUT);
-  }
-}
-
 
 /*
   Select randomly one of the 4 unit (button + LED) and return its index (1 to 4)
@@ -82,7 +77,7 @@ void initLeds(){
 */
 int MOCKgetRdmUnit(){
   //sizeof return the size of the array
-  return random(0,sizeof(leds) / sizeof(leds[0]));
+  return random(0,sizeof(units) / sizeof(units[0]));
 
 }
 
@@ -97,20 +92,20 @@ void MOCKwaitLighting(int lightingInterval[2]){
 /*
   Light up the LED with the corresponding given pin 
 */
-void lightUpLED(int ledIdx){
-  digitalWrite(leds[ledIdx], HIGH);
+void lightUpLED(const int ledIdx){
+  digitalWrite(units[ledIdx].led, HIGH);
 }
 
 
 /*
   Determine if the correct button has been pressed on time, depending on the pushing difficulty
 */
-bool isButtonPressed(int unitIdx, unsigned long pushingDelay){
+bool isButtonPressed(const int unitIdx, unsigned long pushingDelay){
   bool buttonPressed = false;
   unsigned long startTime = millis();
   //The player can pressed on the button only for a few delay determined by the difficulty
   while (millis()-startTime < pushingDelay) {
-    if (digitalRead(buttons[unitIdx]) == LOW) { 
+    if (digitalRead(units[unitIdx].button) == LOW) { 
       buttonPressed = true;
       //As soon as the button is pressed, the light turn off and the buzzer right song is player
       //This prevent unecessary waiting time
@@ -118,7 +113,7 @@ bool isButtonPressed(int unitIdx, unsigned long pushingDelay){
     }
   }
 
-  digitalWrite(leds[unitIdx], LOW);
+  digitalWrite(units[unitIdx].led, LOW);
 
   return buttonPressed;
 }
