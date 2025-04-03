@@ -102,18 +102,40 @@ void lightUpLED(const int ledIdx){
 */
 bool isButtonPressed(const int unitIdx, unsigned long pushingDelay){
   bool buttonPressed = false;
+  bool wrongButtonPressed = false; // added
+  
   unsigned long startTime = millis();
   //The player can pressed on the button only for a few delay determined by the difficulty
   while (millis()-startTime < pushingDelay) {
+    // Check if the correct button is pressed
     if (digitalRead(units[unitIdx].button) == LOW) { 
       buttonPressed = true;
+      digitalWrite(units[unitIdx].led, LOW); // I would add this here not outside the couple
       //As soon as the button is pressed, the light turn off and the buzzer right song is player
       //This prevent unecessary waiting time
       break;
     }
+
+    // Check if any other button is pressed (wrong button)
+    for (int i = 0; i < 4; i++) {
+      if (i != unitIdx && digitalRead(units[i].button) == LOW) {
+        wrongButtonPressed = true;
+        break; // Exit the loop if any other button is pressed
+      }
+    }
+
+    if (wrongButtonPressed) {
+      break; // Stop the wait if a wrong button was pressed
+    }
+  
   }
 
-  digitalWrite(units[unitIdx].led, LOW);
+  // If any wrong button was pressed, set the feedback to wrong
+  if (wrongButtonPressed) {
+    buttonPressed = false;
+  }
+
+  
 
   return buttonPressed;
 }
