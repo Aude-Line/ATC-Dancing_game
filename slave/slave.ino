@@ -36,7 +36,7 @@ struct Difficulty {
 // Define difficulties with both values
 const Difficulty EASY   = {{8000, 6000}, 4000};
 const Difficulty MEDIUM = {{6000, 4000}, 3000};
-const Difficulty HARD   = {{3000, 1000}, 1000};
+const Difficulty HARD   = {{3000, 2000}, 2000};
 
 void setup(){
   initAllPins();
@@ -101,6 +101,8 @@ void lightUpLED(const int ledIdx){
 
 /*
   Determine if the correct button has been pressed on time, depending on the pushing difficulty
+
+  NOTE: MAKE A WRONG SOUND IF WRONG BUTTON PRESSED -> REMOVE WHILE
 */
 bool isButtonPressed(const int unitIdx, unsigned long pushingDelay){
   bool buttonPressed = false;
