@@ -126,7 +126,7 @@ bool isButtonPressed(const int unitIdx, unsigned long pushingDelay){
   //The player can pressed on the button only for a few delay determined by the difficulty
   while (millis()-startTime < pushingDelay) {
     // Check if the correct button is pressed
-    if (aw.digitalRead(units[unitIdx].button) == LOW) { 
+    if (digitalRead(units[unitIdx].button) == LOW) { 
       aw.digitalWrite(units[unitIdx].led, LOW); // I would add this here not outside the couple
       //As soon as the button is pressed, the light turn off and the buzzer right song is player
       //This prevent unecessary waiting time
