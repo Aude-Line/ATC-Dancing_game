@@ -1,20 +1,24 @@
-const int button1 = 3,
+#include <Adafruit_AW9523.h>
+
+Adafruit_AW9523 aw;
+
+const unsigned int button1 = 3,
           button2 = 4,
           button3 = 5,
           button4 = 6;
 
 //Momentary implementation of pin connected LEDs instead of LED strips connected bc I2C
-const int led1 = 10, 
-          led2 = 11, 
-          led3 = 12, 
-          led4 = 13;
+const unsigned int led1 = 1,
+          led2 = 2, 
+          led3 = 3, 
+          led4 = 4  ;
 
-const int buzzer = 9;
+const unsigned int buzzer = 9;
 
 //A button unit is characterized by a button and a led
 struct ButtonUnit{
-  const int button; 
-  const int led;
+  const unsigned int button; 
+  const unsigned int led;
 };
 
 const ButtonUnit unit1 = {button1, led1};
@@ -68,7 +72,7 @@ void initUnit(){
   for(ButtonUnit unit : units){
       //To spare some resistors for the butons, we used the pin in build pull up resistor
       pinMode(unit.button, INPUT_PULLUP); 
-      pinMode(unit.led, OUTPUT);
+      aw.pinMode(unit.led, OUTPUT);
   }
 }
 
@@ -95,7 +99,7 @@ void MOCKwaitLighting(int lightingInterval[2]){
   Light up the LED with the corresponding given pin 
 */
 void lightUpLED(const int ledIdx){
-  digitalWrite(units[ledIdx].led, HIGH);
+  aw.digitalWrite(units[ledIdx].led, HIGH);
 }
 
 
@@ -105,21 +109,28 @@ void lightUpLED(const int ledIdx){
   NOTE: MAKE A WRONG SOUND IF WRONG BUTTON PRESSED -> REMOVE WHILE
 */
 bool isButtonPressed(const int unitIdx, unsigned long pushingDelay){
-  bool buttonPressed = false;
   unsigned long startTime = millis();
   //The player can pressed on the button only for a few delay determined by the difficulty
   while (millis()-startTime < pushingDelay) {
-    if (digitalRead(units[unitIdx].button) == LOW) { 
-      buttonPressed = true;
+    // Check if the correct button is pressed
+    if (aw.digitalRead(units[unitIdx].button) == LOW) { 
+      aw.digitalWrite(units[unitIdx].led, LOW); // I would add this here not outside the couple
       //As soon as the button is pressed, the light turn off and the buzzer right song is player
       //This prevent unecessary waiting time
-      break;
+      return true;
     }
+
+    // Check if any other button is pressed (wrong button)
+    for (int i = 0; i < 4; i++) {
+      if (i != unitIdx && digitalRead(units[i].button) == LOW) {
+        aw.digitalWrite(units[unitIdx].led, LOW);
+        return false;
+      }
+    }
+
   }
-
-  digitalWrite(units[unitIdx].led, LOW);
-
-  return buttonPressed;
+  aw.digitalWrite(units[unitIdx].led, LOW);
+  return false;
 }
 
 
