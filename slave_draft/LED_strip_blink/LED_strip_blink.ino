@@ -2,8 +2,7 @@
 
 Adafruit_AW9523 aw;
 
-uint8_t LedPin = 1
-;  // 0 thru 15
+uint8_t LedPin = 1; 
 
 void setup() {
   Serial.begin(115200);

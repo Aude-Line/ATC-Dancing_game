@@ -1,20 +1,24 @@
-const int button1 = 3,
+#include <Adafruit_AW9523.h>
+
+Adafruit_AW9523 aw;
+
+const unsigned int button1 = 3,
           button2 = 4,
           button3 = 5,
           button4 = 6;
 
 //Momentary implementation of pin connected LEDs instead of LED strips connected bc I2C
-const int led1 = 10, 
-          led2 = 11, 
-          led3 = 12, 
-          led4 = 13;
+const unsigned int led1 = 3,
+          led2 = 4, 
+          led3 = 5, 
+          led4 = 6;
 
-const int buzzer = 9;
+const unsigned int buzzer = 9;
 
 //A button unit is characterized by a button and a led
 struct ButtonUnit{
-  const int button; 
-  const int led;
+  const unsigned int button; 
+  const unsigned int led;
 };
 
 const ButtonUnit unit1 = {button1, led1};
@@ -39,6 +43,7 @@ const Difficulty MEDIUM = {{6000, 4000}, 3000};
 const Difficulty HARD   = {{3000, 2000}, 2000};
 
 void setup(){
+  initBoard();
   initAllPins();
 }
 
@@ -52,6 +57,18 @@ void loop(){
   auditiveFB(buttonPressed);
 }
 
+
+void initBoard(){
+  while (!Serial) delay(1);  // wait for serial port to open
+  
+  Serial.println("Adafruit AW9523 GPIO Expander test!");
+
+  
+  if (! aw.begin(0x58)) {
+    Serial.println("AW9523 not found? Check wiring!");
+    while (1) delay(10);  // halt forever
+  } 
+}
 
 /* 
   Initialise the different pins used by the system
@@ -68,7 +85,7 @@ void initUnit(){
   for(ButtonUnit unit : units){
       //To spare some resistors for the butons, we used the pin in build pull up resistor
       pinMode(unit.button, INPUT_PULLUP); 
-      pinMode(unit.led, OUTPUT);
+      aw.pinMode(unit.led, OUTPUT);
   }
 }
 
@@ -95,7 +112,7 @@ void MOCKwaitLighting(int lightingInterval[2]){
   Light up the LED with the corresponding given pin 
 */
 void lightUpLED(const int ledIdx){
-  digitalWrite(units[ledIdx].led, HIGH);
+  aw.digitalWrite(units[ledIdx].led, HIGH);
 }
 
 
@@ -110,7 +127,7 @@ bool isButtonPressed(const int unitIdx, unsigned long pushingDelay){
   while (millis()-startTime < pushingDelay) {
     // Check if the correct button is pressed
     if (digitalRead(units[unitIdx].button) == LOW) { 
-      digitalWrite(units[unitIdx].led, LOW); // I would add this here not outside the couple
+      aw.digitalWrite(units[unitIdx].led, LOW); // I would add this here not outside the couple
       //As soon as the button is pressed, the light turn off and the buzzer right song is player
       //This prevent unecessary waiting time
       return true;
@@ -119,13 +136,13 @@ bool isButtonPressed(const int unitIdx, unsigned long pushingDelay){
     // Check if any other button is pressed (wrong button)
     for (int i = 0; i < 4; i++) {
       if (i != unitIdx && digitalRead(units[i].button) == LOW) {
-        digitalWrite(units[unitIdx].led, LOW);
+        aw.digitalWrite(units[unitIdx].led, LOW);
         return false;
       }
     }
 
   }
-  digitalWrite(units[unitIdx].led, LOW);
+  aw.digitalWrite(units[unitIdx].led, LOW);
   return false;
 }
 
