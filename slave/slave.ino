@@ -8,10 +8,10 @@ const unsigned int button1 = 3,
           button4 = 6;
 
 //Momentary implementation of pin connected LEDs instead of LED strips connected bc I2C
-const unsigned int led1 = 1,
-          led2 = 2, 
-          led3 = 3, 
-          led4 = 4  ;
+const unsigned int led1 = 3,
+          led2 = 4, 
+          led3 = 5, 
+          led4 = 6;
 
 const unsigned int buzzer = 9;
 
@@ -43,6 +43,7 @@ const Difficulty MEDIUM = {{6000, 4000}, 3000};
 const Difficulty HARD   = {{3000, 2000}, 2000};
 
 void setup(){
+  initBoard();
   initAllPins();
 }
 
@@ -56,6 +57,18 @@ void loop(){
   auditiveFB(buttonPressed);
 }
 
+
+void initBoard(){
+  while (!Serial) delay(1);  // wait for serial port to open
+  
+  Serial.println("Adafruit AW9523 GPIO Expander test!");
+
+  
+  if (! aw.begin(0x58)) {
+    Serial.println("AW9523 not found? Check wiring!");
+    while (1) delay(10);  // halt forever
+  } 
+}
 
 /* 
   Initialise the different pins used by the system
