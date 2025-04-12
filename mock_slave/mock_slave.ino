@@ -38,6 +38,7 @@ const uint64_t addresses[2] = { 0x5A36484130LL,
 
 uint16_t time = 0;
 Player idPlayer = PLAYER1;
+unsigned long lastSendTime = 0;
 
 void setup() {
   Serial.begin(9600);
@@ -70,10 +71,8 @@ void setup() {
   //radio.setRetries(((role * 3) % 12) + 3, 15);  // maximum value is 15 for both args
 
   time = random(0, 1500);
+  lastSendTime = millis();
 }
-
-unsigned long lastSendTime = 0; //It wasn't inizialized
-
 
 void loop() {
   read();

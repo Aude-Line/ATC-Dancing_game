@@ -49,6 +49,8 @@ RF24 radio(CE_PIN, CSN_PIN);
 const uint64_t addresses[2] = { 0x5A36484130LL,
                                 0x5448344430LL};
 
+unsigned long lastSendTime = 0;
+
 void setup() {
   Serial.begin(9600);
   while (!Serial) {
@@ -75,9 +77,8 @@ void setup() {
   radio.startListening();  // put radio in RX mode
 
   initPlayers(players, modules);
+  lastSendTime = millis();
 }
-
-unsigned long lastSendTime = 0;
 
 void loop() {
   read();
@@ -168,7 +169,6 @@ void sendMessage(CommandsFromMaster command, uint8_t receivers){
 void read(){
   uint8_t pipe;
   PayloadFromSlaveStruct payloadFromSlave;
-  PayloadFromMasterStruct payloadFromMaster;
   if (radio.available(&pipe)) {              // is there a payload? get the pipe number that received it
     uint8_t bytes = radio.getDynamicPayloadSize();  // get the size of the payload
     radio.read(&payloadFromSlave, bytes);             // fetch payload from FIFO
@@ -182,10 +182,8 @@ void read(){
     Serial.println(F("Payload content:"));
     Serial.print(F("  ID player: "));
     Serial.println(payloadFromSlave.idPlayer);
-    Serial.print(F("  ButtonsToPress: "));
-    Serial.println(payloadFromMaster.buttonsToPress);
-    Serial.print(F("  Score: "));
-    Serial.println(payloadFromMaster.score);
+    Serial.print(F("  Buttons are pressed correctly: "));
+    Serial.println(payloadFromSlave.buttonsPressed);
   }
 }
 
