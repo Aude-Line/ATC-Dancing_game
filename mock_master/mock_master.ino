@@ -12,9 +12,19 @@
 #define CSN_PIN 10
 
 enum Colors{RED, GREEN, BLUE, YELLOW}; //jsp si besoin comme je suis partie du principe que on peut envoyer potentiellemnt plusieurs boutons à appuyer
-enum Player{NONE=-1, PLAYER1, PLAYER2, PLAYER3, PLAYER4};
+enum Player : int8_t {NONE=-1, PLAYER1, PLAYER2, PLAYER3, PLAYER4}; //forcer à un int8_t pour réduire le payload
 enum State{STOP_GAME, SETUP, GAME};
 enum CommandsFromMaster{STOP_GAME, SETUP, BUTTONS, SCORE, MISSED_BUTTONS};
+
+struct PayloadFromMasterStruct{
+  CommandsFromMaster command;
+  uint8_t buttonsToPress;
+  uint16_t score;
+};
+struct PayloadFromSlaveStruct{
+  Player idPlayer; //maybe not needed but can allow to adjust communication if there was a setup missed
+  bool buttonsPressed; //en mode le/les bons boutons ont tous été appuyés
+};
 
 struct PlayerStruct{
   uint8_t modules; //mask
@@ -27,17 +37,6 @@ struct ModuleStruct{
 };
 PlayerStruct players[MAX_PLAYERS];
 ModuleStruct modules[NBR_SLAVES];
-
-
-struct PayloadFromMasterStruct{
-  CommandsFromMaster command;
-  uint8_t buttonsToPress;
-  uint16_t score;
-};
-struct PayloadFromSlaveStruct{
-  Player idPlayer; //maybe not needed but can allow to adjust communication if there was a setup missed
-  uint8_t buttonsPressed;
-};
 
 // instantiate an object for the nRF24L01 transceiver
 RF24 radio(CE_PIN, CSN_PIN);
@@ -57,9 +56,14 @@ void setup() {
   }
   delay(1500); //juste pour que le terminal ne commence pas à lire avant et qu'il y ait des trucs bizarres dedans, jsp si c'est ok normalement
 
-  radio.begin();
+  // initialize the transceiver on the SPI bus
+  if (!radio.begin()) {
+    Serial.println(F("radio hardware is not responding!!"));
+    while (1) {}  // hold in infinite loop
+  }
   radio.setChannel(125);
   radio.setPALevel(RF24_PA_LOW);
+  radio.enableDynamicPayloads(); //as we have different payload size
   Serial.print(F("Addresses to receive: "));
   for (uint8_t i = 0; i < NBR_SLAVES; ++i){
     Serial.print(F("  Pipe "));
@@ -74,9 +78,28 @@ void setup() {
 }
 
 void loop() {
-  //print64Hex(addresses[1]);
-  //print64Hex(addresses[1]+1);
-  //delay(1000);
+  read();
+
+  unsigned long currentTime = millis();   // Récupère le temps actuel
+  // Vérifier si 2 secondes se sont écoulées
+  if (currentTime - lastSendTime >= 2000) {  
+    // Mettre à jour le dernier temps d'envoi
+    lastSendTime = currentTime;
+
+    // Générer une commande aléatoire entre 0 et 4 (selon les valeurs possibles de l'énum)
+    CommandsFromMaster command = static_cast<CommandsFromMaster>(random(0, 5));  // Random entre 0 et 4 (STOP_GAME à MISSED_BUTTONS)
+    // Générer un masque de récepteurs aléatoire
+    uint8_t receivers = random(0, (1 << NBR_SLAVES));  // Masque binaire avec NBR_SLAVES bits
+
+    // Afficher les valeurs dans le terminal pour vérifier
+    Serial.print(F("Random command: "));
+    Serial.println(command);
+    Serial.print(F("Random receivers mask: "));
+    Serial.println(receivers, BIN);  // Affiche en binaire
+
+    // Appeler la fonction d'envoi avec la commande et les récepteurs générés
+    sendMessage(command, receivers);
+  }
 }
 
 void print64Hex(uint64_t val) {
@@ -93,6 +116,7 @@ void sendMessage(CommandsFromMaster command, uint8_t receivers){
   for (uint8_t slave = 0; slave < NBR_SLAVES; ++slave){
     if(receivers & (1 << slave)){
       //creation du payload
+      /* caché pour l'instant car mock comm
       payloadFromMaster.command = command;
       payloadFromMaster.buttonsToPress = modules[slave].buttonsToPress;
       if(modules[slave].playerOfModule != NONE){
@@ -100,6 +124,11 @@ void sendMessage(CommandsFromMaster command, uint8_t receivers){
       }else{
         payloadFromMaster.score = 0;
       }
+      */
+      // Création d'un payload aléatoire pour tester
+      payloadFromMaster.command = (CommandsFromMaster)(random(0, 6));  // Commande aléatoire entre 0 et 5 (en fonction de ton enum)
+      payloadFromMaster.buttonsToPress = random(0, 16);  // Valeur aléatoire entre 0 et 15 pour les 4 boutons
+      payloadFromMaster.score = random(0, 100);
 
       //début de la com
       radio.openWritingPipe(addresses[1]+slave);¨
@@ -132,6 +161,29 @@ void sendMessage(CommandsFromMaster command, uint8_t receivers){
     }
   }
   radio.startListening();  // put radio in RX mode
+}
+
+void read(){
+  uint8_t pipe;
+  PayloadFromSlaveStruct payloadFromSlave;
+  if (radio.available(&pipe)) {              // is there a payload? get the pipe number that received it
+    uint8_t bytes = radio.getDynamicPayloadSize();  // get the size of the payload
+    radio.read(&payloadFromSlave, bytes);             // fetch payload from FIFO
+
+    Serial.println(F("\n==========NEW RECEPTION=========="));
+    Serial.print(F("From slave "));
+    print64Hex(pipe-1);
+    Serial.print(F(" from pipe "));
+    Serial.print(pipe);
+
+    Serial.println(F("Payload content:"));
+    Serial.print(F("  ID player: "));
+    Serial.println(payloadFromSlave.idPlayer);
+    Serial.print(F("  ButtonsToPress: "));
+    Serial.println(payloadFromMaster.buttonsToPress);
+    Serial.print(F("  Score: "));
+    Serial.println(payloadFromMaster.score);
+  }
 }
 
 void initPlayers(PlayerStruct* players, ModuleStruct* modules){
