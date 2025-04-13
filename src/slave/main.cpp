@@ -25,6 +25,8 @@ Adafruit_AW9523 aw;
 
 Button* buttons[4];
 
+State actualState = STOPGAME;
+uint16_t score = 0;
 uint16_t time = 0;
 int8_t idPlayer = SLAVE_ID; // Pour l'instant à attribuer mieux après
 
@@ -120,5 +122,29 @@ void read(){
 
     Serial.println(F("\n==========NEW RECEPTION=========="));
     printPayloadFromMasterStruct(payloadFromMaster);
+
+    // Change mode based on the command received
+    switch (payloadFromMaster.command){
+      case CMD_SETUP:
+        actualState = SETUP;
+        /* code */
+        break;
+      case CMD_BUTTONS:
+        actualState = GAME;
+        /* code */
+        break;
+      case CMD_SCORE:
+        actualState = GAME;
+        /* code */
+        break;
+      case CMD_MISSED_BUTTONS:
+        actualState = GAME;
+        /* code */
+        break;
+      default: //CMD_STOP_GAME
+        actualState = STOPGAME;
+        break;
+    }
+    // Turn on/off LEDs based on the received command
   }
 }
