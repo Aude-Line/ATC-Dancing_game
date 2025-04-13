@@ -14,7 +14,7 @@
 enum Colors{RED, GREEN, BLUE, YELLOW}; //jsp si besoin comme je suis partie du principe que on peut envoyer potentiellemnt plusieurs boutons à appuyer
 enum Player : int8_t {NONE=-1, PLAYER1, PLAYER2, PLAYER3, PLAYER4}; //forcer à un int8_t pour réduire le payload
 enum State{STOPGAME, SETUP, GAME};
-enum CommandsFromMaster{STOP_GAME, SET_UP, BUTTONS, SCORE, MISSED_BUTTONS}; // redeclaration problem
+enum CommandsFromMaster : int8_t {STOP_GAME, SET_UP, BUTTONS, SCORE, MISSED_BUTTONS}; // redeclaration problem
 
 struct PayloadFromMasterStruct{
   CommandsFromMaster command;
@@ -75,9 +75,9 @@ void setup() {
     radio.openReadingPipe(i+1, addresses[1]+i); //use pipes 1-5 for reception, pipe 0 is reserved for transmission in this code
   }
   radio.startListening();  // put radio in RX mode
+  lastSendTime = millis();
 
   initPlayers(players, modules);
-  lastSendTime = millis();
 }
 
 void loop() {

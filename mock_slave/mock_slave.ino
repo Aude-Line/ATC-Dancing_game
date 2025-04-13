@@ -70,14 +70,15 @@ void setup() {
   // So, use varying delay between retry attempts and 15 (at most) retry attempts
   //radio.setRetries(((role * 3) % 12) + 3, 15);  // maximum value is 15 for both args
 
-  time = random(0, 1500);
+  time = random(0, 300);
   lastSendTime = millis();
 }
 
 void loop() {
   read();
   unsigned long currentTime = millis();   // Récupère le temps actuel
-  if (currentTime - lastSendTime >= time) {  
+  if (currentTime - lastSendTime >= time) { 
+    time = random(0, 1500);
     // Mettre à jour le dernier temps d'envoi
     lastSendTime = currentTime;
 
