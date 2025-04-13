@@ -14,7 +14,7 @@ struct PlayerStruct{
   uint16_t score;
 };
 struct ModuleStruct{
-  Player playerOfModule;
+  int8_t playerOfModule;
   uint8_t buttonsToPress; //mask
 };
 PlayerStruct players[MAX_PLAYERS];
@@ -148,7 +148,7 @@ void initPlayers(PlayerStruct* players, ModuleStruct* modules){
     players[i].score=0;
   }
   for (uint8_t i = 0; i < NBR_SLAVES; i++){
-    modules[i].playerOfModule = NONE;
+    modules[i].playerOfModule = -1; //NONE
     modules[i].buttonsToPress = 0;
   }
 }

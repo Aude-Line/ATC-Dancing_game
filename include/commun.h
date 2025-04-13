@@ -1,6 +1,8 @@
-#include <Arduino.h>
 #ifndef COMMUN_H
 #define COMMUN_H
+
+#include <Arduino.h>
+#include <Adafruit_AW9523.h>
 
 #define MAX_PLAYERS 4 //Ne pas modifier pour utiliser toutes les couleurs
 
@@ -12,16 +14,10 @@ enum Colors{
     BLUE, 
     YELLOW
 }; //jsp si besoin comme je suis partie du principe que on peut envoyer potentiellemnt plusieurs boutons à appuyer
-enum Player : int8_t { //forcer à un int8_t pour réduire le payload
-    NONE=-1, 
-    PLAYER1, 
-    PLAYER2, 
-    PLAYER3, 
-    PLAYER4
-};
+
 enum MasterCommand : uint8_t {
     CMD_STOP_GAME,
-    CMD_SET_UP,
+    CMD_SETUP,
     CMD_BUTTONS,
     CMD_SCORE,
     CMD_MISSED_BUTTONS
@@ -29,12 +25,32 @@ enum MasterCommand : uint8_t {
 
 struct PayloadFromMasterStruct{
   MasterCommand command;
-  uint8_t buttonsToPress;
+  uint8_t buttonsToPress; //Masque de bits pour savoir quels boutons appuyer (0x01 = bouton 1, 0x02 = bouton 2, 0x04 = bouton 3, 0x08 = bouton 4)
   uint16_t score;
 };
 struct PayloadFromSlaveStruct{
-  Player idPlayer; //maybe not needed but can allow to adjust communication if there was a setup missed
-  bool buttonsPressed; //en mode le/les bons boutons ont tous été appuyés
+  int8_t idPlayer; //needed for setup and adjustment
+  bool buttonsPressed; //en mode le/les bons boutons qui devaient être appuyés ont tous été appuyés
+};
+
+//si isPressed et isLED on -> étindre la led car il devait ^tre appuyé dans le jeu
+//pour setup : is isPressed et isLedOn = false -> alumer la LED et envoi message
+class Button {
+  public:
+    Button(uint8_t buttonPin, uint8_t ledPin, Adafruit_AW9523* aw = nullptr);
+
+    void init();
+    bool isPressed() const;
+    bool isLedOn() const { return ledOn; }
+    void turnOnLed();
+    void turnOffLed();
+
+  private:
+    const uint8_t buttonPin;
+    const uint8_t ledPin;
+    Adafruit_AW9523* aw;    // pointeur vers un objet AW9523
+    bool ledAw9523;         // true si aw != nullptr
+    bool ledOn = false;
 };
 
 void print64Hex(uint64_t val);

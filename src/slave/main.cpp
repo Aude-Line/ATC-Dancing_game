@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <Adafruit_AW9523.h>
 #include <SPI.h>
 #include "printf.h"
 #include "RF24.h"
@@ -19,23 +20,39 @@ void read();
 RF24 radio(CE_PIN, CSN_PIN);
 unsigned long lastSendTime = 0;
 
+// instantiate an object for the AW9523 GPIO expander
+Adafruit_AW9523 aw;
+
+Button* buttons[4];
+
 uint16_t time = 0;
-Player idPlayer = static_cast<Player>(SLAVE_ID);
+int8_t idPlayer = SLAVE_ID; // Pour l'instant à attribuer mieux après
 
 void setup() {
   Serial.begin(9600);
   Serial.print("Je suis le slave ID : ");
   Serial.println(SLAVE_ID);
 
+  if (!aw.begin(0x58)) {
+    Serial.println("AW9523 not found? Check wiring!");
+    while (1) delay(10);  // halt forever
+  }
+  //initialisation après être sur que le module est connecté
+  buttons[RED] = new Button(RED_BUTTON_PIN, RED_LED_PIN, &aw);
+  buttons[GREEN] = new Button(GREEN_BUTTON_PIN, GREEN_LED_PIN, &aw);
+  buttons[BLUE] = new Button(BLUE_BUTTON_PIN, BLUE_LED_PIN, &aw);
+  buttons[YELLOW] = new Button(YELLOW_BUTTON_PIN, YELLOW_LED_PIN, &aw);
+
+  pinMode(BUZZER_PIN, OUTPUT);
+
   Serial.print("address to send: ");
   print64Hex(addresses[1] + SLAVE_ID);
   Serial.print("address to receive: ");
   print64Hex(addresses[0] + SLAVE_ID);
-  
   // initialize the transceiver on the SPI bus
   if (!radio.begin()) {
     Serial.println(F("radio hardware is not responding!!"));
-    while (1) {}  // hold in infinite loop
+    while (1) delay(10);  // halt forever
   }
   radio.setChannel(125);
   radio.setPALevel(RF24_PA_LOW);
