@@ -38,5 +38,7 @@ struct PayloadFromSlaveStruct{
 };
 
 void print64Hex(uint64_t val);
+void printPayloadFromMasterStruct(const PayloadFromMasterStruct& payload); //passage par référence pour éviter de faire une copie de la structure
+void printPayloadFromSlaveStruct(const PayloadFromSlaveStruct& payload);
 
 #endif

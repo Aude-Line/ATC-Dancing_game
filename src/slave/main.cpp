@@ -57,6 +57,8 @@ void loop() {
     lastSendTime = currentTime;
 
     bool trueButtons = random(0, 2);  // Random entre 0 et 1
+
+    Serial.println(F("\n==========TRUE BUTTONS AND PLAYER ID=========="));
     // Afficher les valeurs dans le terminal pour vérifier
     Serial.print(F("Random trueButtons: "));
     Serial.println(trueButtons);
@@ -82,13 +84,7 @@ void sendMessage(bool buttonsPressed){
   radio.startListening();  // put radio in RX mode
 
   Serial.println(F("\n==========NEW TRANSMISSION=========="));
-
-  Serial.println(F("Payload content:"));
-  Serial.print(F("  PlayerID: "));
-  Serial.println(payloadFromSlave.idPlayer);
-  Serial.print(F("  Buttons pressed correctly: "));
-  Serial.println(payloadFromSlave.buttonsPressed);
-
+  printPayloadFromSlaveStruct(payloadFromSlave);
   if (report) {
     Serial.print(F("✅ Transmission successful in "));
     Serial.print(end_timer - start_timer);
@@ -96,6 +92,7 @@ void sendMessage(bool buttonsPressed){
   } else {
     Serial.println(F("❌ Transmission failed"));
   }
+
 }
 
 void read(){
@@ -105,13 +102,6 @@ void read(){
     radio.read(&payloadFromMaster, bytes);             // fetch payload from FIFO
 
     Serial.println(F("\n==========NEW RECEPTION=========="));
-
-    Serial.println(F("Payload content:"));
-    Serial.print(F("  Command: "));
-    Serial.println(payloadFromMaster.command);
-    Serial.print(F("  ButtonsToPress: "));
-    Serial.println(payloadFromMaster.buttonsToPress);
-    Serial.print(F("  Score: "));
-    Serial.println(payloadFromMaster.score);
+    printPayloadFromMasterStruct(payloadFromMaster);
   }
 }

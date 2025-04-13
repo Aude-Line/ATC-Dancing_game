@@ -69,6 +69,7 @@ void loop() {
     // Générer un masque de récepteurs aléatoire
     uint8_t receivers = random(0, (1 << NBR_SLAVES));  // Masque binaire avec NBR_SLAVES bits
 
+    Serial.println(F("\n==========VALS COMMAND AND RECEIVERS=========="));
     // Afficher les valeurs dans le terminal pour vérifier
     Serial.print(F("Random command: "));
     Serial.println(command);
@@ -96,7 +97,7 @@ void sendMessage(MasterCommand command, uint8_t receivers){
       }
       */
       // Création d'un payload aléatoire pour tester
-      payloadFromMaster.command = (MasterCommand)(random(0, 6));  // Commande aléatoire entre 0 et 5 (en fonction de ton enum)
+      payloadFromMaster.command = command;  // Commande aléatoire entre 0 et 5 (en fonction de ton enum)
       payloadFromMaster.buttonsToPress = random(0, 16);  // Valeur aléatoire entre 0 et 15 pour les 4 boutons
       payloadFromMaster.score = random(0, 100);
 
@@ -113,14 +114,7 @@ void sendMessage(MasterCommand command, uint8_t receivers){
       Serial.print(F("Writing pipe address: 0x"));
       print64Hex(addresses[1]+slave);
 
-      Serial.println(F("Payload content:"));
-      Serial.print(F("  Command: "));
-      Serial.println(payloadFromMaster.command);
-      Serial.print(F("  ButtonsToPress: "));
-      Serial.println(payloadFromMaster.buttonsToPress);
-      Serial.print(F("  Score: "));
-      Serial.println(payloadFromMaster.score);
-
+      printPayloadFromMasterStruct(payloadFromMaster);
       if (report) {
         Serial.print(F("✅ Transmission successful in "));
         Serial.print(end_timer - start_timer);
@@ -142,15 +136,8 @@ void read(){
 
     Serial.println(F("\n==========NEW RECEPTION=========="));
     Serial.print(F("From slave "));
-    print64Hex(pipe-1);
-    Serial.print(F(" from pipe "));
-    Serial.print(pipe);
-
-    Serial.println(F("Payload content:"));
-    Serial.print(F("  ID player: "));
-    Serial.println(payloadFromSlave.idPlayer);
-    Serial.print(F("  Buttons are pressed correctly: "));
-    Serial.println(payloadFromSlave.buttonsPressed);
+    Serial.println(pipe-1);
+    printPayloadFromSlaveStruct(payloadFromSlave);
   }
 }
 
