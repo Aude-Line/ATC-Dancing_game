@@ -124,6 +124,9 @@ void read(){
     printPayloadFromMasterStruct(payloadFromMaster);
 
     // Change mode based on the command received
+    // Turn on/off LEDs based on the received command
+    // Update score
+    // Play sound if needed
     switch (payloadFromMaster.command){
       case CMD_SETUP:
         actualState = SETUP;
@@ -145,6 +148,5 @@ void read(){
         actualState = STOPGAME;
         break;
     }
-    // Turn on/off LEDs based on the received command
   }
 }
