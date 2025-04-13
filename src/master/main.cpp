@@ -1,30 +1,12 @@
-/**
-* Master code to test the skeleton of the code (communication and threads)
-*/
-
+#include <Arduino.h>
 #include <SPI.h>
 #include "printf.h"
 #include "RF24.h"
 
-#define NBR_SLAVES 3 //MAX 5 or else we can no longer use the multiceiver function (pipe 0 is reserved for transmission, pipes 1-5 reception)
-#define MAX_PLAYERS 4 //Ne pas modifier pour utiliser toutes les couleurs
-#define CE_PIN 9
-#define CSN_PIN 10
+#include <master_pins.h>
+#include <commun.h>
 
-enum Colors{RED, GREEN, BLUE, YELLOW}; //jsp si besoin comme je suis partie du principe que on peut envoyer potentiellemnt plusieurs boutons à appuyer
-enum Player : int8_t {NONE=-1, PLAYER1, PLAYER2, PLAYER3, PLAYER4}; //forcer à un int8_t pour réduire le payload
-enum State{STOPGAME, SETUP, GAME};
-enum CommandsFromMaster{STOP_GAME, SET_UP, BUTTONS, SCORE, MISSED_BUTTONS}; // redeclaration problem
-
-struct PayloadFromMasterStruct{
-  CommandsFromMaster command;
-  uint8_t buttonsToPress;
-  uint16_t score;
-};
-struct PayloadFromSlaveStruct{
-  Player idPlayer; //maybe not needed but can allow to adjust communication if there was a setup missed
-  bool buttonsPressed; //en mode le/les bons boutons ont tous été appuyés
-};
+enum State{STOPGAME, SETUP, GAMEMODE1, GAMEMODE2};
 
 struct PlayerStruct{
   uint8_t modules; //mask
@@ -38,25 +20,17 @@ struct ModuleStruct{
 PlayerStruct players[MAX_PLAYERS];
 ModuleStruct modules[NBR_SLAVES];
 
+void initPlayers(PlayerStruct* players, ModuleStruct* modules);
+void sendMessage(MasterCommand command, uint8_t receivers);
+void read();
+
 // instantiate an object for the nRF24L01 transceiver
 RF24 radio(CE_PIN, CSN_PIN);
-
-/*
-* reference values of the tx and rx channels
-* they will be dynamically attributed for each slave, max 6 slaves
-* exemple: slave 3 will use the adresses 5A36484133 and 5448344433
-*/
-const uint64_t addresses[2] = { 0x5A36484130LL,
-                                0x5448344430LL};
-
 unsigned long lastSendTime = 0;
 
 void setup() {
   Serial.begin(9600);
-  while (!Serial) {
-    // some boards need to wait to ensure access to serial over USB
-  }
-  delay(1500); //juste pour que le terminal ne commence pas à lire avant et qu'il y ait des trucs bizarres dedans, jsp si c'est ok normalement
+  Serial.println("Je suis le master !");
 
   // initialize the transceiver on the SPI bus
   if (!radio.begin()) {
@@ -65,6 +39,7 @@ void setup() {
   }
   radio.setChannel(125);
   radio.setPALevel(RF24_PA_LOW);
+  radio.setRetries(5, 15);
   radio.enableDynamicPayloads(); //as we have different payload size
   Serial.print(F("Addresses to receive: "));
   for (uint8_t i = 0; i < NBR_SLAVES; ++i){
@@ -75,9 +50,9 @@ void setup() {
     radio.openReadingPipe(i+1, addresses[1]+i); //use pipes 1-5 for reception, pipe 0 is reserved for transmission in this code
   }
   radio.startListening();  // put radio in RX mode
+  lastSendTime = millis();
 
   initPlayers(players, modules);
-  lastSendTime = millis();
 }
 
 void loop() {
@@ -90,10 +65,11 @@ void loop() {
     lastSendTime = currentTime;
 
     // Générer une commande aléatoire entre 0 et 4 (selon les valeurs possibles de l'énum)
-    CommandsFromMaster command = static_cast<CommandsFromMaster>(random(0, 5));  // Random entre 0 et 4 (STOP_GAME à MISSED_BUTTONS)
+    MasterCommand command = static_cast<MasterCommand>(random(0, 5));  // Random entre 0 et 4 (STOP_GAME à MISSED_BUTTONS)
     // Générer un masque de récepteurs aléatoire
     uint8_t receivers = random(0, (1 << NBR_SLAVES));  // Masque binaire avec NBR_SLAVES bits
 
+    Serial.println(F("\n==========VALS COMMAND AND RECEIVERS=========="));
     // Afficher les valeurs dans le terminal pour vérifier
     Serial.print(F("Random command: "));
     Serial.println(command);
@@ -105,15 +81,7 @@ void loop() {
   }
 }
 
-void print64Hex(uint64_t val) {
-  uint32_t high = (uint32_t)(val >> 32);  // Poids fort
-  uint32_t low = (uint32_t)(val & 0xFFFFFFFF); // Poids faible
-
-  Serial.print(high, HEX);
-  Serial.println(low, HEX);
-}
-
-void sendMessage(CommandsFromMaster command, uint8_t receivers){
+void sendMessage(MasterCommand command, uint8_t receivers){
   PayloadFromMasterStruct payloadFromMaster;
   radio.stopListening();
   for (uint8_t slave = 0; slave < NBR_SLAVES; ++slave){
@@ -129,12 +97,12 @@ void sendMessage(CommandsFromMaster command, uint8_t receivers){
       }
       */
       // Création d'un payload aléatoire pour tester
-      payloadFromMaster.command = (CommandsFromMaster)(random(0, 6));  // Commande aléatoire entre 0 et 5 (en fonction de ton enum)
+      payloadFromMaster.command = command;  // Commande aléatoire entre 0 et 5 (en fonction de ton enum)
       payloadFromMaster.buttonsToPress = random(0, 16);  // Valeur aléatoire entre 0 et 15 pour les 4 boutons
       payloadFromMaster.score = random(0, 100);
 
       //début de la com
-      radio.openWritingPipe(addresses[1]+slave);
+      radio.openWritingPipe(addresses[0]+slave);
       unsigned long start_timer = micros();                  // start the timer
       bool report = radio.write(&payloadFromMaster, sizeof(payloadFromMaster));  // transmit & save the report
       unsigned long end_timer = micros();                    // end the timer
@@ -146,14 +114,7 @@ void sendMessage(CommandsFromMaster command, uint8_t receivers){
       Serial.print(F("Writing pipe address: 0x"));
       print64Hex(addresses[1]+slave);
 
-      Serial.println(F("Payload content:"));
-      Serial.print(F("  Command: "));
-      Serial.println(payloadFromMaster.command);
-      Serial.print(F("  ButtonsToPress: "));
-      Serial.println(payloadFromMaster.buttonsToPress);
-      Serial.print(F("  Score: "));
-      Serial.println(payloadFromMaster.score);
-
+      printPayloadFromMasterStruct(payloadFromMaster);
       if (report) {
         Serial.print(F("✅ Transmission successful in "));
         Serial.print(end_timer - start_timer);
@@ -175,15 +136,8 @@ void read(){
 
     Serial.println(F("\n==========NEW RECEPTION=========="));
     Serial.print(F("From slave "));
-    print64Hex(pipe-1);
-    Serial.print(F(" from pipe "));
-    Serial.print(pipe);
-
-    Serial.println(F("Payload content:"));
-    Serial.print(F("  ID player: "));
-    Serial.println(payloadFromSlave.idPlayer);
-    Serial.print(F("  Buttons are pressed correctly: "));
-    Serial.println(payloadFromSlave.buttonsPressed);
+    Serial.println(pipe-1);
+    printPayloadFromSlaveStruct(payloadFromSlave);
   }
 }
 
