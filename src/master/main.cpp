@@ -67,7 +67,7 @@ void loop() {
 
     // Générer une commande aléatoire entre 0 et 4 (selon les valeurs possibles de l'énum)
     //MasterCommand command = static_cast<MasterCommand>(random(0, 1));  // Random entre 0 et 4 (STOP_GAME à MISSED_BUTTONS)
-    MasterCommand command = CMD_BUTTONS;  // Pour tester, on envoie toujours la même commande
+    MasterCommand command = CMD_SETUP;  // Pour tester, on envoie toujours la même commande
     // Générer un masque de récepteurs aléatoire
     uint8_t receivers = random(0, (1 << NBR_SLAVES));  // Masque binaire avec NBR_SLAVES bits
 
@@ -101,7 +101,7 @@ void sendMessage(MasterCommand command, uint8_t receivers){
       // Création d'un payload aléatoire pour tester
       payloadFromMaster.command = command;  // Commande aléatoire entre 0 et 5 (en fonction de ton enum)
       payloadFromMaster.buttonsToPress = random(0, 16);  // Valeur aléatoire entre 0 et 15 pour les 4 boutons
-      payloadFromMaster.score = random(0, 100);
+      payloadFromMaster.score = random(0, 2);
 
       //début de la com
       radio.openWritingPipe(addresses[0]+slave);

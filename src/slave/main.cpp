@@ -202,6 +202,7 @@ void readFromMaster(){
         }
         break;
       case CMD_SCORE: //si mauvais bouton ou pas de bouton appuyé, le master envoye SCORE_FAILED
+        actualState = GAME;
         if(payloadFromMaster.score == SCORE_FAILED){
           turnOffLeds(); //éteindre les autres led si mauvais bouton appuyé
           Serial.println(F("Wrong button pressed"));
