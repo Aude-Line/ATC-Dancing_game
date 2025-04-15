@@ -13,7 +13,7 @@
 #define SLAVE_ID -1
 #endif
 
-enum State{STOPGAME, SETUP, GAME};
+enum GameState{STOPGAME, SETUP, GAME};
 
 void resetModule();
 void sendMessageToMaster(bool buttonsPressed);
@@ -29,7 +29,7 @@ Adafruit_AW9523 aw;
 
 Button* buttons[4];
 
-State actualState = STOPGAME;
+GameState actualState = STOPGAME;
 uint16_t score = 0;
 Player idPlayer = NONE; // Pour l'instant à attribuer mieux après
 
@@ -68,14 +68,14 @@ void setup() {
 }
 
 void loop() {
-  Serial.println(F("\n==========LECTURE=========="));
+  //Serial.println(F("\n==========LECTURE=========="));
   readFromMaster();
 
-  Serial.println(F("\n==========CHECK SON ETAT=========="));
+  //Serial.println(F("\n==========CHECK SON ETAT=========="));
   bool shouldSend = false;
   bool rightButtonsPressed = false;
-  switch (actualState){
-    case SETUP:
+  switch(actualState){
+    case SETUP: {
       for(uint8_t button = 0; button < NB_COLORS; button++){
         if(buttons[button]->isPressed()){
           if(buttons[button]->isLedOn()){
@@ -92,7 +92,8 @@ void loop() {
         }
       }
       break;
-    case GAME:
+    }
+    case GAME: {
       uint8_t nbrOfNotPressedButtons = 0;
       for(uint8_t button = 0; button < NB_COLORS; button++){
         if(buttons[button]->isPressed()){
@@ -117,11 +118,19 @@ void loop() {
         shouldSend = true;
       }
       break;
-    default:
+    }
+    case STOPGAME: {
+      Serial.println(F("Game is stopped."));
       shouldSend = false;
+      break;
+    }
+    default: {
+      shouldSend = false;
+      break;
+    }
   }
 
-  Serial.print(F("\n==========ENVOI SI BESOIN=========="));
+  //Serial.print(F("\n==========ENVOI SI BESOIN=========="));
   if(shouldSend){
     sendMessageToMaster(rightButtonsPressed);
   }

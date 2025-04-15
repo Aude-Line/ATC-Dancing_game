@@ -59,7 +59,6 @@ void setup() {
 
 void loop() {
   read();
-   // it wasn't declared
   unsigned long currentTime = millis();   // Récupère le temps actuel
   // Vérifier si 2 secondes se sont écoulées
   if (currentTime - lastSendTime >= 2000) {  
