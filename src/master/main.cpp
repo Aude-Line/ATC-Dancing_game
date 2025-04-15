@@ -1,10 +1,11 @@
 #include <Arduino.h>
+#include <Adafruit_AW9523.h>
 #include <SPI.h>
 #include "printf.h"
 #include "RF24.h"
 
 #include <master_pins.h>
-#include <commun.h>
+#include <communication.h>
 
 enum State{STOPGAME, SETUP, GAMEMODE1, GAMEMODE2};
 

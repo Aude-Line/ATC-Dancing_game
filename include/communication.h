@@ -1,18 +1,25 @@
-#ifndef COMMUN_H
-#define COMMUN_H
+#ifndef COMMUNICATION_H
+#define COMMUNICATION_H
 
 #include <Arduino.h>
-#include <Adafruit_AW9523.h>
-
-#define MAX_PLAYERS 4 //Ne pas modifier pour utiliser toutes les couleurs
 
 extern const uint64_t addresses[2]; // adresses utilisées pour la communication entre le master et les slaves, definies dans le .cpp
 
-enum Colors{
+enum Player : int8_t {
+  NONE = -1,
+  PLAYER_1,
+  PLAYER_2,
+  PLAYER_3,
+  PLAYER_4,
+  MAX_PLAYERS//Nombre de joueurs, utilisé pour le nombre de couleurs
+};
+
+enum Color{
     RED, 
     GREEN, 
     BLUE, 
-    YELLOW
+    YELLOW,
+    NB_COLORS //Nombre de couleurs, utilisé pour le nombre de joueurs
 }; //jsp si besoin comme je suis partie du principe que on peut envoyer potentiellemnt plusieurs boutons à appuyer
 
 enum MasterCommand : uint8_t {
@@ -29,28 +36,8 @@ struct PayloadFromMasterStruct{
   uint16_t score;
 };
 struct PayloadFromSlaveStruct{
-  int8_t idPlayer; //needed for setup and adjustment
+  Player idPlayer; //needed for setup and adjustment
   bool buttonsPressed; //en mode le/les bons boutons qui devaient être appuyés ont tous été appuyés
-};
-
-//si isPressed et isLED on -> étindre la led car il devait ^tre appuyé dans le jeu
-//pour setup : is isPressed et isLedOn = false -> alumer la LED et envoi message
-class Button {
-  public:
-    Button(uint8_t buttonPin, uint8_t ledPin, Adafruit_AW9523* aw = nullptr);
-
-    void init();
-    bool isPressed() const;
-    bool isLedOn() const { return ledOn; }
-    void turnOnLed();
-    void turnOffLed();
-
-  private:
-    const uint8_t buttonPin;
-    const uint8_t ledPin;
-    Adafruit_AW9523* aw;    // pointeur vers un objet AW9523
-    bool ledAw9523;         // true si aw != nullptr
-    bool ledOn = false;
 };
 
 void print64Hex(uint64_t val);

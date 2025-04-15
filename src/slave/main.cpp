@@ -5,7 +5,8 @@
 #include "RF24.h"
 
 #include <slave_pins.h>
-#include <commun.h>
+#include <communication.h>
+#include <button.h>
 
 #ifndef SLAVE_ID
 #define SLAVE_ID -1
@@ -28,7 +29,7 @@ Button* buttons[4];
 State actualState = STOPGAME;
 uint16_t score = 0;
 uint16_t time = 0;
-int8_t idPlayer = SLAVE_ID; // Pour l'instant à attribuer mieux après
+Player idPlayer = NONE; // Pour l'instant à attribuer mieux après
 
 void setup() {
   Serial.begin(9600);
