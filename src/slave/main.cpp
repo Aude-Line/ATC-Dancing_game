@@ -95,8 +95,10 @@ void loop() {
     }
     case GAME: {
       uint8_t nbrOfNotPressedButtons = 0;
+      bool atLeastOneButtonPressed = false;
       for(uint8_t button = 0; button < NB_COLORS; button++){
         if(buttons[button]->isPressed()){
+          atLeastOneButtonPressed = true;
           if(buttons[button]->isLedOn()){
             rightButtonsPressed = true;
             buttons[button]->turnOffLed();
@@ -112,7 +114,7 @@ void loop() {
           nbrOfNotPressedButtons++;
         }
       }
-      if(nbrOfNotPressedButtons == 0){
+      if(nbrOfNotPressedButtons == 0 and atLeastOneButtonPressed){ //tous les boutons qui devaient être appuyés ont été appuyés
         shouldSend = true;
       }
       break;
