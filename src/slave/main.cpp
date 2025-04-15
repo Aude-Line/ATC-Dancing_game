@@ -14,8 +14,8 @@
 
 enum State{STOPGAME, SETUP, GAME};
 
-void sendMessage(bool buttonsPressed);
-void read();
+void sendMessageToMaster(bool buttonsPressed);
+void readFromMaster();
 
 // instantiate an object for the nRF24L01 transceiver
 RF24 radio(CE_PIN, CSN_PIN);
@@ -28,8 +28,9 @@ Button* buttons[4];
 
 State actualState = STOPGAME;
 uint16_t score = 0;
-uint16_t time = 0;
 Player idPlayer = NONE; // Pour l'instant à attribuer mieux après
+
+uint16_t time = 0; // Variable pour le temps d'attente aléatoire entre les envois
 
 void setup() {
   Serial.begin(9600);
@@ -69,9 +70,9 @@ void setup() {
 }
 
 void loop() {
-  read();
-  unsigned long currentTime = millis();   // Récupère le temps actuel
-  if (currentTime - lastSendTime >= time) { 
+  readFromMaster();
+  unsigned long currentTime = millis();   // valeur tests d'envoi
+  if (currentTime - lastSendTime >= time) {  //valeur test d'envoi
     time = random(1000, 3000); 
     // Mettre à jour le dernier temps d'envoi
     lastSendTime = currentTime;
@@ -86,11 +87,11 @@ void loop() {
     Serial.println(idPlayer);  // Affiche en binaire
 
     // Appeler la fonction d'envoi avec la commande et les récepteurs générés
-    sendMessage(trueButtons);
+    sendMessageToMaster(trueButtons);
   }
 }
 
-void sendMessage(bool buttonsPressed){
+void sendMessageToMaster(bool buttonsPressed){
   PayloadFromSlaveStruct payloadFromSlave;
   
   payloadFromSlave.idPlayer = idPlayer;
@@ -115,7 +116,7 @@ void sendMessage(bool buttonsPressed){
 
 }
 
-void read(){
+void readFromMaster(){
   PayloadFromMasterStruct payloadFromMaster;
   if (radio.available()) {              // is there a payload? get the pipe number that received it
     uint8_t bytes = radio.getDynamicPayloadSize();  // get the size of the payload
