@@ -67,7 +67,10 @@ void setup() {
 }
 
 void loop() {
+  Serial.println(F("\n==========LECTURE=========="));
   readFromMaster();
+
+  Serial.println(F("\n==========CHECK SON ETAT=========="));
   bool shouldSend = false;
   bool rightButtonsPressed = false;
   switch (actualState){
@@ -116,7 +119,8 @@ void loop() {
     default:
       shouldSend = false;
   }
-  
+
+  Serial.print(F("\n==========ENVOI=========="));
   if(shouldSend){
     sendMessageToMaster(rightButtonsPressed);
   }
@@ -147,7 +151,7 @@ void sendMessageToMaster(bool rightButtonsPressed){
   unsigned long end_timer = micros();                    // end the timer
   radio.startListening();  // put radio in RX mode
 
-  Serial.println(F("\n==========NEW TRANSMISSION=========="));
+  Serial.println(F("\n==NEW TRANSMISSION=="));
   printPayloadFromSlaveStruct(payloadFromSlave);
   if (report) {
     Serial.print(F("✅ Transmission successful in "));
@@ -165,7 +169,7 @@ void readFromMaster(){
     uint8_t bytes = radio.getDynamicPayloadSize();  // get the size of the payload
     radio.read(&payloadFromMaster, bytes);             // fetch payload from FIFO
 
-    Serial.println(F("\n==========NEW RECEPTION=========="));
+    Serial.println(F("\n==NEW RECEPTION=="));
     printPayloadFromMasterStruct(payloadFromMaster);
 
     // Change mode based on the command received
