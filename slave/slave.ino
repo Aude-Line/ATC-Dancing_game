@@ -13,7 +13,7 @@ const unsigned int led1 = 3,
           led3 = 5, 
           led4 = 6;
 
-const unsigned int buzzer = 9;
+const unsigned int buzzer = 8;
 
 //A button unit is characterized by a button and a led
 struct ButtonUnit{
