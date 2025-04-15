@@ -120,7 +120,7 @@ void loop() {
       shouldSend = false;
   }
 
-  Serial.print(F("\n==========ENVOI=========="));
+  Serial.print(F("\n==========ENVOI SI BESOIN=========="));
   if(shouldSend){
     sendMessageToMaster(rightButtonsPressed);
   }
