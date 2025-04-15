@@ -19,14 +19,24 @@ void Button::init() {
 }
 
 bool Button::isPressed(){ // detection uniquement d'une falling edge
-  if(lastState == LOW && digitalRead(buttonPin) == HIGH) {
-    lastState = HIGH; // bouton relâché
-    return false;
-  } else if(lastState == HIGH && digitalRead(buttonPin) == LOW) {
-    lastState = LOW; // bouton appuyé
-    return true;
+  bool reading = digitalRead(buttonPin);
+
+  if (reading == lastState) {
+    lastDebounceTime = millis(); // reset du timer
   }
-  return false; // pas de changement d'état
+
+  if ((millis() - lastDebounceTime) > DEBOUNCE_DELAY) {
+    //Serial.println("Debounce time écoulé !");
+    if (lastState == HIGH && reading == LOW) {
+      lastState = LOW;
+      return true;
+    } else if (lastState == LOW && reading == HIGH) {
+      lastState = HIGH;
+      return false; // bouton relâché
+    }
+  }
+
+  return false;
 }
 
 void Button::turnOnLed(){

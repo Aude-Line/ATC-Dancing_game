@@ -23,6 +23,8 @@ class Button {
       bool ledAw9523;         // true si aw != nullptr
       bool ledOn = false;
       bool lastState = HIGH; // permet la detection de la falling edge
+      unsigned long lastDebounceTime = 0;
+      static const unsigned long DEBOUNCE_DELAY = 50; // ms
   };
 
   #endif

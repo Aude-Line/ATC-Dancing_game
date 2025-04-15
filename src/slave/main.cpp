@@ -110,8 +110,6 @@ void loop() {
           }
         }else if(buttons[button]->isLedOn()){ //un bouton qui doit être appuyé n'a pas encore été appuyé
           nbrOfNotPressedButtons++;
-          Serial.print(F("Button not pressed: "));
-          Serial.println(button);
         }
       }
       if(nbrOfNotPressedButtons == 0){
