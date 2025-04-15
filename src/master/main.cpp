@@ -67,7 +67,8 @@ void loop() {
     lastSendTime = currentTime;
 
     // Générer une commande aléatoire entre 0 et 4 (selon les valeurs possibles de l'énum)
-    MasterCommand command = static_cast<MasterCommand>(random(0, 5));  // Random entre 0 et 4 (STOP_GAME à MISSED_BUTTONS)
+    //MasterCommand command = static_cast<MasterCommand>(random(0, 1));  // Random entre 0 et 4 (STOP_GAME à MISSED_BUTTONS)
+    MasterCommand command = CMD_SETUP;
     // Générer un masque de récepteurs aléatoire
     uint8_t receivers = random(0, (1 << NBR_SLAVES));  // Masque binaire avec NBR_SLAVES bits
 

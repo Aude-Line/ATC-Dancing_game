@@ -18,6 +18,7 @@ enum State{STOPGAME, SETUP, GAME};
 void resetModule();
 void sendMessageToMaster(bool buttonsPressed);
 void readFromMaster();
+void turnOffLeds();
 
 // instantiate an object for the nRF24L01 transceiver
 RF24 radio(CE_PIN, CSN_PIN);
