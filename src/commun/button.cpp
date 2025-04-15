@@ -15,13 +15,21 @@ void Button::init() {
     digitalWrite(ledPin, LOW);          // LED éteinte (active HIGH)
   }
   ledOn = false;
+  lastState = HIGH; // état initial du bouton (non appuyé)
 }
 
-bool Button::isPressed() const {
-  return digitalRead(buttonPin) == LOW;
+bool Button::isPressed(){ // detection uniquement d'une falling edge
+  if(lastState == LOW && digitalRead(buttonPin) == HIGH) {
+    lastState = HIGH; // bouton relâché
+    return false;
+  } else if(lastState == HIGH && digitalRead(buttonPin) == LOW) {
+    lastState = LOW; // bouton appuyé
+    return true;
+  }
+  return false; // pas de changement d'état
 }
 
-void Button::turnOnLed() {
+void Button::turnOnLed(){
   if (ledAw9523) {
     aw->digitalWrite(ledPin, LOW); // LED allumée (active LOW)
   } else {
@@ -30,7 +38,7 @@ void Button::turnOnLed() {
   ledOn = true;
 }
 
-void Button::turnOffLed() {
+void Button::turnOffLed(){
   if (ledAw9523) {
     aw->digitalWrite(ledPin, HIGH); // LED éteinte (active LOW)
   } else {

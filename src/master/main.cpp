@@ -5,6 +5,7 @@
 #include "RF24.h"
 
 #include <master_pins.h>
+#include <util.h>
 #include <communication.h>
 
 enum State{STOPGAME, SETUP, GAMEMODE1, GAMEMODE2};

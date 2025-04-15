@@ -11,7 +11,7 @@ class Button {
       Button(uint8_t buttonPin, uint8_t ledPin, Adafruit_AW9523* aw = nullptr);
   
       void init();
-      bool isPressed() const;
+      bool isPressed(); //Detection uniquement d'une falling edge
       bool isLedOn() const { return ledOn; }
       void turnOnLed();
       void turnOffLed();
@@ -22,6 +22,7 @@ class Button {
       Adafruit_AW9523* aw;    // pointeur vers un objet AW9523
       bool ledAw9523;         // true si aw != nullptr
       bool ledOn = false;
+      bool lastState = HIGH; // permet la detection de la falling edge
   };
 
   #endif

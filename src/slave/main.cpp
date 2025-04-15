@@ -5,6 +5,7 @@
 #include "RF24.h"
 
 #include <slave_pins.h>
+#include <util.h>
 #include <communication.h>
 #include <button.h>
 
@@ -14,6 +15,7 @@
 
 enum State{STOPGAME, SETUP, GAME};
 
+void resetModule();
 void sendMessageToMaster(bool buttonsPressed);
 void readFromMaster();
 
@@ -29,8 +31,6 @@ Button* buttons[4];
 State actualState = STOPGAME;
 uint16_t score = 0;
 Player idPlayer = NONE; // Pour l'instant à attribuer mieux après
-
-uint16_t time = 0; // Variable pour le temps d'attente aléatoire entre les envois
 
 void setup() {
   Serial.begin(9600);
@@ -64,38 +64,81 @@ void setup() {
   radio.openWritingPipe(addresses[1]+SLAVE_ID);
   radio.openReadingPipe(1, addresses[0]+SLAVE_ID);
   radio.startListening();
-
-  lastSendTime = millis();
-  time = random(1000, 3000); //to test a random response time
 }
 
 void loop() {
   readFromMaster();
-  unsigned long currentTime = millis();   // valeur tests d'envoi
-  if (currentTime - lastSendTime >= time) {  //valeur test d'envoi
-    time = random(1000, 3000); 
-    // Mettre à jour le dernier temps d'envoi
-    lastSendTime = currentTime;
-
-    bool trueButtons = random(0, 2);  // Random entre 0 et 1
-
-    Serial.println(F("\n==========TRUE BUTTONS AND PLAYER ID=========="));
-    // Afficher les valeurs dans le terminal pour vérifier
-    Serial.print(F("Random trueButtons: "));
-    Serial.println(trueButtons);
-    Serial.print(F("Player ID: "));
-    Serial.println(idPlayer);  // Affiche en binaire
-
-    // Appeler la fonction d'envoi avec la commande et les récepteurs générés
-    sendMessageToMaster(trueButtons);
+  bool shouldSend = false;
+  bool rightButtonsPressed = false;
+  switch (actualState){
+    case SETUP:
+      for(uint8_t button = 0; button < NB_COLORS; button++){
+        if(buttons[button]->isPressed()){
+          if(buttons[button]->isLedOn()){
+            buttons[button]->turnOffLed();
+            idPlayer = NONE;
+          }else{
+            turnOffLeds(); //éteindre les autres LEDS, peut être mieux optimisé
+            buttons[button]->turnOnLed();
+            idPlayer = (Player)button; //idPlayer = button
+            Serial.print(F("ID player: "));
+            Serial.println(idPlayer);
+          }
+          shouldSend = true;
+        }
+      }
+      break;
+    case GAME:
+      uint8_t nbrOfNotPressedButtons = 0;
+      for(uint8_t button = 0; button < NB_COLORS; button++){
+        if(buttons[button]->isPressed()){
+          if(buttons[button]->isLedOn()){
+            rightButtonsPressed = true;
+            buttons[button]->turnOffLed();
+            Serial.print(F("Right button pressed: "));
+            Serial.println(button);
+          }else{ //un bouton qui ne devait pas être appuyé a été appuyé, envoit au master
+            rightButtonsPressed = false;
+            shouldSend = true;
+            Serial.print(F("Wrong button pressed: "));
+            Serial.println(button);
+          }
+        }else if(buttons[button]->isLedOn()){ //un bouton qui doit être appuyé n'a pas encore été appuyé
+          nbrOfNotPressedButtons++;
+          Serial.print(F("Button not pressed: "));
+          Serial.println(button);
+        }
+      }
+      if(nbrOfNotPressedButtons == 0){
+        shouldSend = true;
+      }
+      break;
+    default:
+      shouldSend = false;
+  }
+  
+  if(shouldSend){
+    sendMessageToMaster(rightButtonsPressed);
   }
 }
 
-void sendMessageToMaster(bool buttonsPressed){
+void turnOffLeds(){
+  for (uint8_t button=0; button<NB_COLORS; ++button){
+    buttons[button]->turnOffLed();
+  }
+}
+
+void resetModule(){
+  turnOffLeds();
+  idPlayer = NONE;
+  score = 0;
+}
+
+void sendMessageToMaster(bool rightButtonsPressed){
   PayloadFromSlaveStruct payloadFromSlave;
   
   payloadFromSlave.idPlayer = idPlayer;
-  payloadFromSlave.buttonsPressed = buttonsPressed;
+  payloadFromSlave.rightButtonsPressed = rightButtonsPressed;
 
   //début com 
   radio.stopListening();
@@ -132,22 +175,33 @@ void readFromMaster(){
     switch (payloadFromMaster.command){
       case CMD_SETUP:
         actualState = SETUP;
-        /* code */
+        resetModule();
         break;
       case CMD_BUTTONS:
         actualState = GAME;
-        /* code */
+        for (uint8_t button=0; button<NB_COLORS; ++button){
+          if(payloadFromMaster.buttonsToPress & (1 << button)){
+            buttons[button]->turnOnLed();
+          }else{
+            buttons[button]->turnOffLed();
+          }
+        }
         break;
-      case CMD_SCORE:
-        actualState = GAME;
-        /* code */
-        break;
-      case CMD_MISSED_BUTTONS:
-        actualState = GAME;
-        /* code */
+      case CMD_SCORE: //si mauvais bouton ou pas de bouton appuyé, le master envoye SCORE_FAILED
+        if(payloadFromMaster.score == SCORE_FAILED){
+          turnOffLeds(); //éteindre les autres led si mauvais bouton appuyé
+          Serial.println(F("Wrong button pressed"));
+          tone(BUZZER_PIN, SOUND_FREQUENCY_BAD, SOUND_DURATION_LONG);
+        }else{
+          score += 1;
+          Serial.print(F("Score updated: "));
+          Serial.println(score);
+          tone(BUZZER_PIN, SOUND_FREQUENCY_GREAT, SOUND_DURATION_LONG);
+        }
         break;
       default: //CMD_STOP_GAME
         actualState = STOPGAME;
+        resetModule();
         break;
     }
   }
