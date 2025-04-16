@@ -34,8 +34,11 @@ unsigned long lastSendTime = 0;
 State actualState = STOPGAME; // Added a similar state as in slave to switch 
 Button* StartButton; // Defined the start and setup button and states
 Button* SetUpButton;
-bool StartButtonPressed = false;
-bool SetUpButtonPressed = false;
+PayloadFromSlaveStruct PayloadFromSlave[NBR_SLAVES];
+uint8_t FromSlaveID[NBR_SLAVES];
+uint8_t gameMode = 0;
+uint8_t receivers = 0;
+
 
 void setup() {
   Serial.begin(9600);
@@ -49,8 +52,6 @@ void setup() {
   // Inizialization of buttons and potentiometers
   StartButton = new Button(START_BUTTON_PIN, START_LED_PIN);
   SetUpButton = new Button (SETUP_BUTTON_PIN, SETUP_LED_PIN);
-  bool SetUpButtonPressed = false;
-  bool StartButtonPressed = false;
 
   pinMode(POTENTIOMETER_MODE_PIN, INPUT);
   pinMode(POTENTIOMETER_DIFFICULTY_PIN, INPUT);
@@ -97,37 +98,80 @@ void loop() {
     // Appeler la fonction d'envoi avec la commande et les récepteurs générés
     sendMessage(command, receivers);
   }
-  uint8_t gameMode = 0;
-  uint8_t receivers = 0;
+
   // The actual game logic
   if (SetUpButton->isPressed()){
     // If the setupbutton has been pressed enter the setupmode
     actualState = SETUP;
-    SetUpButtonPressed = true;
-  }
-
-  if (StartButton->isPressed() & SetUpButtonPressed){
-    // If a start button is pressed after entering setup mode
-    gameMode = map(analogRead(POTENTIOMETER_MODE_PIN), 0, 1023, 1, 2);
-    SetUpButtonPressed = false; // We give the possibility of changing again the setup
-    // Entering the mode according to the selected one
-    switch(gameMode){
-      case 1: {
-        actualState = GAMEMODE1;
-        break;
-      }
-      case 2: {
-        actualState = GAMEMODE2;
-        break;
-      }
-    }
   }
 
   switch(actualState){
     case SETUP:{
-      receivers = (1 << NBR_SLAVES)-1; // Setting 1 to all slaves
-      sendMessage(CMD_SETUP,receivers); // Telling all the slaves to enter setup mode
+      static bool setupCommandSent = false;
+      if (!setupCommandSent){
+        receivers = (1 << NBR_SLAVES)-1; // Setting 1 to all slaves
+        sendMessage(CMD_SETUP,receivers); // Telling all the slaves to enter setup mode
+        setupCommandSent = true;
+        Serial.println ("Setup command sent. Waiting for players...");
+      }
+      // Keep reading incoming setupresponses and storing them should we put shile StartButton is not pressed?
       read();
+
+
+
+      // Wait for start button to move forward
+      if (StartButton ->isPressed()){
+        gameMode = map(analogRead(POTENTIOMETER_MODE_PIN), 0, 1023, 1, 2);
+        // To add also difficulty potentiometer
+        Serial.println( "Start Pressed! Assigning modules");
+        // Should actualState be changed?
+        setupCommandSent = false;
+        SetUpButton->isPressed = false;
+        StartButton->isPressed = false;
+
+
+        // Let's clear previous assignments
+        initPlayers(players, modules);
+      
+
+        // Assign modules to players
+        for (uint8_t i = 0; i< NBR_SLAVES; i++){
+          Player idPlayer = PayloadFromSlave[i].idPlayer;
+
+          if (idPlayer != NONE && idPlayer < NBR_SLAVES){
+            modules[i].playerOfModule = idPlayer;
+            players[idPlayer].modules |= (1 << i); //Bitmask update. To ask Audeline what she wanted here
+            players[idPlayer].nbrOfModules++;
+          }
+        }
+
+        
+        // Debug print
+        Serial.println(F("\n==========ASSIGNMENTS=========="));
+        for (uint8_t i = 0; i < MAX_PLAYERS; i++) {
+          Serial.print(F("Player "));
+          Serial.print(i);
+          Serial.print(F(" has modules: 0b"));
+          Serial.println(players[i].modules, BIN);
+          Serial.print(F("Number of modules: "));
+          Serial.println(players[i].nbrOfModules);
+        }
+
+        switch(gameMode){
+          case 1: {
+            actualState = GAMEMODE1;
+            break;
+          }
+          case 2: {
+            actualState = GAMEMODE2;
+            break;
+          }
+        }
+      
+        break;
+      }
+      break;
+
     }
     case STOPGAME: {}
     case GAMEMODE1: {}
@@ -182,19 +226,19 @@ void sendMessage(MasterCommand command, uint8_t receivers){
   radio.startListening();  // put radio in RX mode
 }
 
-// I changed the type if we want to store the message received
+// To access the message and who sent it
 void read(){
-  uint8_t pipe;
-  PayloadFromSlaveStruct payloadFromSlave;
+  uint8_t pipe; // Should an extra control for the pipe be added?
   if (radio.available(&pipe)) {              // is there a payload? get the pipe number that received it
     uint8_t bytes = radio.getDynamicPayloadSize();  // get the size of the payload
-    radio.read(&payloadFromSlave, bytes);             // fetch payload from FIFO
+    radio.read(&PayloadFromSlave[pipe], bytes);             // fetch payload from FIFO
 
+    FromSlaveId[pipe] = pipe - 1;
+    
     Serial.println(F("\n==========NEW RECEPTION=========="));
     Serial.print(F("From slave "));
-    Serial.println(pipe-1);
-    printPayloadFromSlaveStruct(payloadFromSlave);
-    return payloadFromSlave;
+    Serial.println(FromSlaveId[pipe]);
+    printPayloadFromSlaveStruct(PayloadFromSlave[pipe]);
   }
 }
 
