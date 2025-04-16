@@ -13,7 +13,7 @@
 #define SLAVE_ID -1
 #endif
 
-enum GameState{STOPGAME, SETUP, GAME};
+enum GameState{STOPGAME, SETUP, GAMEMODE1, GAMEMODE2}; // Added different game modes as states
 
 void resetModule();
 void sendMessageToMaster(bool buttonsPressed);
@@ -43,6 +43,7 @@ void setup() {
     while (1) delay(10);  // halt forever
   }
   //initialisation après être sur que le module est connecté
+  //Should the buttons and leds be initialized?
   buttons[RED] = new Button(RED_BUTTON_PIN, RED_LED_PIN, &aw);
   buttons[GREEN] = new Button(GREEN_BUTTON_PIN, GREEN_LED_PIN, &aw);
   buttons[BLUE] = new Button(BLUE_BUTTON_PIN, BLUE_LED_PIN, &aw);
@@ -91,9 +92,10 @@ void loop() {
           shouldSend = true;
         }
       }
+      
       break;
     }
-    case GAME: {
+    case GAMEMODE1: {
       uint8_t nbrOfNotPressedButtons = 0;
       bool atLeastOneButtonPressed = false;
       for(uint8_t button = 0; button < NB_COLORS; button++){
@@ -118,6 +120,8 @@ void loop() {
         shouldSend = true;
       }
       break;
+    }
+    case GAMEMODE2: {
     }
     case STOPGAME: {
       Serial.println(F("Game is stopped."));

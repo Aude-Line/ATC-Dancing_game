@@ -7,6 +7,7 @@
 #include <master_pins.h>
 #include <util.h>
 #include <communication.h>
+#include <button.h>
 
 enum State{STOPGAME, SETUP, GAMEMODE1, GAMEMODE2};
 
@@ -30,6 +31,12 @@ void read();
 RF24 radio(CE_PIN, CSN_PIN);
 unsigned long lastSendTime = 0;
 
+State actualState = STOPGAME; // Added a similar state as in slave to switch 
+Button* StartButton; // Defined the start and setup button and states
+Button* SetUpButton;
+bool StartButtonPressed = false;
+bool SetUpButtonPressed = false;
+
 void setup() {
   Serial.begin(9600);
   Serial.println("Je suis le master !");
@@ -39,6 +46,15 @@ void setup() {
     Serial.println(F("radio hardware is not responding!!"));
     while (1) {}  // hold in infinite loop
   }
+  // Inizialization of buttons and potentiometers
+  StartButton = new Button(START_BUTTON_PIN, START_LED_PIN);
+  SetUpButton = new Button (SETUP_BUTTON_PIN, SETUP_LED_PIN);
+  bool SetUpButtonPressed = false;
+  bool StartButtonPressed = false;
+
+  pinMode(POTENTIOMETER_MODE_PIN, INPUT);
+  pinMode(POTENTIOMETER_DIFFICULTY_PIN, INPUT);
+
   radio.setChannel(125);
   radio.setPALevel(RF24_PA_LOW);
   radio.setRetries(5, 15);
@@ -80,6 +96,43 @@ void loop() {
 
     // Appeler la fonction d'envoi avec la commande et les récepteurs générés
     sendMessage(command, receivers);
+  }
+  uint8_t gameMode = 0;
+  uint8_t receivers = 0;
+  // The actual game logic
+  if (SetUpButton->isPressed()){
+    // If the setupbutton has been pressed enter the setupmode
+    actualState = SETUP;
+    SetUpButtonPressed = true;
+  }
+
+  if (StartButton->isPressed() & SetUpButtonPressed){
+    // If a start button is pressed after entering setup mode
+    gameMode = map(analogRead(POTENTIOMETER_MODE_PIN), 0, 1023, 1, 2);
+    SetUpButtonPressed = false; // We give the possibility of changing again the setup
+    // Entering the mode according to the selected one
+    switch(gameMode){
+      case 1: {
+        actualState = GAMEMODE1;
+        break;
+      }
+      case 2: {
+        actualState = GAMEMODE2;
+        break;
+      }
+    }
+  }
+
+  switch(actualState){
+    case SETUP:{
+      receivers = (1 << NBR_SLAVES)-1; // Setting 1 to all slaves
+      sendMessage(CMD_SETUP,receivers); // Telling all the slaves to enter setup mode
+      read();
+    }
+    case STOPGAME: {}
+    case GAMEMODE1: {}
+    case GAMEMODE2: {}
+    default: {}
   }
 }
 
@@ -129,6 +182,7 @@ void sendMessage(MasterCommand command, uint8_t receivers){
   radio.startListening();  // put radio in RX mode
 }
 
+// I changed the type if we want to store the message received
 void read(){
   uint8_t pipe;
   PayloadFromSlaveStruct payloadFromSlave;
@@ -140,6 +194,7 @@ void read(){
     Serial.print(F("From slave "));
     Serial.println(pipe-1);
     printPayloadFromSlaveStruct(payloadFromSlave);
+    return payloadFromSlave;
   }
 }
 
