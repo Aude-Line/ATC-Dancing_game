@@ -13,7 +13,7 @@
 #define SLAVE_ID -1
 #endif
 
-enum GameState{STOPGAME, SETUP, GAMEMODE1, GAMEMODE2}; // Added different game modes as states
+enum GameState{STOPGAME, SETUP,GAME}; // Added different game modes as states
 
 void resetModule();
 void sendMessageToMaster(bool buttonsPressed);
@@ -95,7 +95,7 @@ void loop() {
       
       break;
     }
-    case GAMEMODE1: {
+    case GAME: {
       uint8_t nbrOfNotPressedButtons = 0;
       bool atLeastOneButtonPressed = false;
       for(uint8_t button = 0; button < NB_COLORS; button++){
@@ -120,8 +120,6 @@ void loop() {
         shouldSend = true;
       }
       break;
-    }
-    case GAMEMODE2: {
     }
     case STOPGAME: {
       Serial.println(F("Game is stopped."));

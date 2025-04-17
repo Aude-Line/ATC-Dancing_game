@@ -103,11 +103,12 @@ void loop() {
   if (SetUpButton->isPressed()){
     // If the setupbutton has been pressed enter the setupmode
     actualState = SETUP;
+
   }
 
   switch(actualState){
     case SETUP:{
-      static bool setupCommandSent = false;
+      static bool setupCommandSent = false; // Sh
       if (!setupCommandSent){
         receivers = (1 << NBR_SLAVES)-1; // Setting 1 to all slaves
         sendMessage(CMD_SETUP,receivers); // Telling all the slaves to enter setup mode
@@ -126,13 +127,9 @@ void loop() {
         Serial.println( "Start Pressed! Assigning modules");
         // Should actualState be changed?
         setupCommandSent = false;
-        SetUpButton->isPressed = false;
-        StartButton->isPressed = false;
-
-
+      
         // Let's clear previous assignments
         initPlayers(players, modules);
-      
 
         // Assign modules to players
         for (uint8_t i = 0; i< NBR_SLAVES; i++){
@@ -222,7 +219,6 @@ void sendMessage(MasterCommand command, uint8_t receivers){
   for (uint8_t slave = 0; slave < NBR_SLAVES; ++slave){
     if(receivers & (1 << slave)){
       //creation du payload
-      /* caché pour l'instant car mock comm
       payloadFromMaster.command = command;
       payloadFromMaster.buttonsToPress = modules[slave].buttonsToPress;
       if(modules[slave].playerOfModule != NONE){
@@ -230,11 +226,14 @@ void sendMessage(MasterCommand command, uint8_t receivers){
       }else{
         payloadFromMaster.score = 0;
       }
-      */
+
+      /*
       // Création d'un payload aléatoire pour tester
-      payloadFromMaster.command = command;  // Commande aléatoire entre 0 et 5 (en fonction de ton enum)
+      payloadFromMaster.command = command;
       payloadFromMaster.buttonsToPress = random(0, 16);  // Valeur aléatoire entre 0 et 15 pour les 4 boutons
       payloadFromMaster.score = random(0, 2);
+      */
+
 
       //début de la com
       radio.openWritingPipe(addresses[0]+slave);
@@ -267,14 +266,14 @@ void read(){
   uint8_t pipe; // Should an extra control for the pipe be added?
   if (radio.available(&pipe)) {              // is there a payload? get the pipe number that received it
     uint8_t bytes = radio.getDynamicPayloadSize();  // get the size of the payload
-    radio.read(&PayloadFromSlave[pipe], bytes);             // fetch payload from FIFO
+    radio.read(&PayloadFromSlave[pipe-1], bytes);             // fetch payload from FIFO
 
-    FromSlaveId[pipe] = pipe - 1;
+    FromSlaveId[pipe-1] = pipe - 1;
     
     Serial.println(F("\n==========NEW RECEPTION=========="));
     Serial.print(F("From slave "));
-    Serial.println(FromSlaveId[pipe]);
-    printPayloadFromSlaveStruct(PayloadFromSlave[pipe]);
+    Serial.println(FromSlaveId[pipe-1]);
+    printPayloadFromSlaveStruct(PayloadFromSlave[pipe-1]);
   }
 }
 
@@ -287,5 +286,17 @@ void initPlayers(PlayerStruct* players, ModuleStruct* modules){
   for (uint8_t i = 0; i < NBR_SLAVES; i++){
     modules[i].playerOfModule = -1; //NONE
     modules[i].buttonsToPress = 0;
+  }
+}
+
+void assignButtons(PlayerStruct* players, ModuleStruct* modules, uint8_t nbrButtons){
+  if(nbrButtons < 1 or nbrButtons > 4){
+    for (uint8_t i = 0; i < NBR_SLAVES; i++){
+      modules[i].buttonsToPress = 0;
+    }
+  }else{
+    for(uint8_t player = 0; player <NB_COLORS; player++){
+      
+    }
   }
 }
