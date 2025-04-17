@@ -9,7 +9,7 @@
 #include <communication.h>
 #include <button.h>
 
-enum State{STOPGAME, SETUP, GAMEMODE1, GAMEMODE2};
+enum State{SETUP, STOPGAME, GAMEMODE1, GAMEMODE2};
 
 struct PlayerStruct{
   uint8_t modules; //mask
@@ -26,6 +26,7 @@ ModuleStruct modules[NBR_SLAVES];
 void initPlayers(PlayerStruct* players, ModuleStruct* modules);
 void sendMessage(MasterCommand command, uint8_t receivers);
 void read();
+uint8_t assignButtons(PlayerStruct* players, ModuleStruct* modules, uint8_t nbrButtons=0);
 
 // instantiate an object for the nRF24L01 transceiver
 RF24 radio(CE_PIN, CSN_PIN);
@@ -35,7 +36,7 @@ State actualState = STOPGAME; // Added a similar state as in slave to switch
 Button* StartButton; // Defined the start and setup button and states
 Button* SetUpButton;
 PayloadFromSlaveStruct PayloadFromSlave[NBR_SLAVES];
-uint8_t FromSlaveID[NBR_SLAVES];
+uint8_t fromSlaveID[NBR_SLAVES];
 uint8_t gameMode = 0;
 uint8_t receivers = 0;
 
@@ -103,30 +104,22 @@ void loop() {
   if (SetUpButton->isPressed()){
     // If the setupbutton has been pressed enter the setupmode
     actualState = SETUP;
-
+    receivers = (1 << NBR_SLAVES)-1; // Setting 1 to all slaves
+    sendMessage(CMD_SETUP,receivers); // Telling all the slaves to enter setup mode
+    Serial.println ("Setup command sent. Waiting for players...");
   }
 
   switch(actualState){
     case SETUP:{
-      static bool setupCommandSent = false; // Sh
-      if (!setupCommandSent){
-        receivers = (1 << NBR_SLAVES)-1; // Setting 1 to all slaves
-        sendMessage(CMD_SETUP,receivers); // Telling all the slaves to enter setup mode
-        setupCommandSent = true;
-        Serial.println ("Setup command sent. Waiting for players...");
-      }
-      // Keep reading incoming setupresponses and storing them should we put shile StartButton is not pressed?
-      read();
-
-
+      read(); // update the payloads from slaves, récuperer le payload
+      //si payload appeler fonction assignModules
 
       // Wait for start button to move forward
       if (StartButton ->isPressed()){
-        gameMode = map(analogRead(POTENTIOMETER_MODE_PIN), 0, 1023, 1, 2);
-        // To add also difficulty potentiometer
         Serial.println( "Start Pressed! Assigning modules");
-        // Should actualState be changed?
-        setupCommandSent = false;
+        gameMode = map(analogRead(POTENTIOMETER_MODE_PIN), 0, 1023, 1, 2);
+        actualState = static_cast<State>(STOPGAME + gameMode); // Set the game mode based on the potentiometer value
+        // To add also difficulty potentiometer
       
         // Let's clear previous assignments
         initPlayers(players, modules);
@@ -134,15 +127,13 @@ void loop() {
         // Assign modules to players
         for (uint8_t i = 0; i< NBR_SLAVES; i++){
           Player idPlayer = PayloadFromSlave[i].idPlayer;
-
-          if (idPlayer != NONE && idPlayer < NBR_SLAVES){
+          if (idPlayer != NONE && idPlayer < NB_COLORS){
             modules[i].playerOfModule = idPlayer;
-            players[idPlayer].modules |= (1 << i); //Bitmask update. To ask Audeline what she wanted here
+            players[idPlayer].modules |= (1 << i); //Bitmask update.
             players[idPlayer].nbrOfModules++;
           }
         }
 
-        
         // Debug print
         Serial.println(F("\n==========ASSIGNMENTS=========="));
         for (uint8_t i = 0; i < MAX_PLAYERS; i++) {
@@ -153,18 +144,6 @@ void loop() {
           Serial.print(F("Number of modules: "));
           Serial.println(players[i].nbrOfModules);
         }
-
-        switch(gameMode){
-          case 1: {
-            actualState = GAMEMODE1;
-            break;
-          }
-          case 2: {
-            actualState = GAMEMODE2;
-            break;
-          }
-        }
-      
         break;
       }
       break;
@@ -268,11 +247,11 @@ void read(){
     uint8_t bytes = radio.getDynamicPayloadSize();  // get the size of the payload
     radio.read(&PayloadFromSlave[pipe-1], bytes);             // fetch payload from FIFO
 
-    FromSlaveId[pipe-1] = pipe - 1;
+    fromSlaveID[pipe-1] = pipe - 1;
     
     Serial.println(F("\n==========NEW RECEPTION=========="));
     Serial.print(F("From slave "));
-    Serial.println(FromSlaveId[pipe-1]);
+    Serial.println(fromSlaveID[pipe-1]);
     printPayloadFromSlaveStruct(PayloadFromSlave[pipe-1]);
   }
 }
@@ -289,14 +268,51 @@ void initPlayers(PlayerStruct* players, ModuleStruct* modules){
   }
 }
 
-void assignButtons(PlayerStruct* players, ModuleStruct* modules, uint8_t nbrButtons){
-  if(nbrButtons < 1 or nbrButtons > 4){
-    for (uint8_t i = 0; i < NBR_SLAVES; i++){
-      modules[i].buttonsToPress = 0;
+// Function to assign random buttons to modules and players and return the receivers bitmask
+uint8_t assignButtons(PlayerStruct* players, ModuleStruct* modules, uint8_t nbrButtons=0){
+  receivers = 0; // Reset Receivers
+  //tout éteindre
+  for (uint8_t i = 0; i < NBR_SLAVES; i++){
+    modules[i].buttonsToPress = 0;
+  }
+
+  //choisir quelles couleurs allumer
+  Color colorsToLight[nbrButtons];
+  for(uint8_t i=0; i< nbrButtons; i++){
+    bool colorAttributed = false;
+    Color color;
+    do{
+      color = static_cast<Color>(random(0, NB_COLORS)); // Randomly select a color
+      colorAttributed = true; // Assume the color is not already in use
+      for (uint8_t j = 0; j < i; j++){
+        if (colorsToLight[j] == color){ // Check if the color is already in use
+          colorAttributed = false; // If it is, set the flag to false and break the loop
+          break;
+        }
+      }
+    } while (!colorAttributed); // Keep trying until a color is found that is not already in the array
+    colorsToLight[i]=color;
+  }
+
+  //atribuer un module à chaque couleur
+  if(nbrButtons > 0 and nbrButtons <= NB_COLORS){
+    for(uint8_t player = 0; player <NB_COLORS; player++){
+      for(uint8_t button = 0; button < nbrButtons; button++){
+        uint8_t randomModule = random(0, players[player].nbrOfModules);
+        uint8_t idModule = 0;
+        while(randomModule > -1){
+          while(players[player].modules & (1 << idModule) == 0){
+            idModule++;
+          }
+          randomModule--;
+        }
+        modules[idModule].buttonsToPress |= (1 << colorsToLight[button]); // Set the bit for this button in the module's buttonsToPress bitmask
+        receivers |= (1 << idModule); // Set the bit for this module in the receivers bitmask
+      }
     }
   }else{
-    for(uint8_t player = 0; player <NB_COLORS; player++){
-      
-    }
+    receivers = (1 << NBR_SLAVES)-1; // Setting 1 to all slaves
   }
+
+  return receivers; // Return the receivers bitmask
 }
