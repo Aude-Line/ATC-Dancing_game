@@ -25,7 +25,7 @@ ModuleStruct modules[NBR_SLAVES];
 
 void initPlayers(PlayerStruct* players, ModuleStruct* modules);
 void sendMessage(MasterCommand command, uint8_t receivers);
-void read();
+void readFromSlave();
 uint8_t assignButtons(PlayerStruct* players, ModuleStruct* modules, uint8_t nbrButtons=0);
 
 // instantiate an object for the nRF24L01 transceiver
@@ -76,7 +76,7 @@ void setup() {
 }
 
 void loop() {
-  read();
+  readFromSlave();
   unsigned long currentTime = millis();   // Récupère le temps actuel
   // Vérifier si 2 secondes se sont écoulées
   if (currentTime - lastSendTime >= 2000) {  
@@ -111,7 +111,7 @@ void loop() {
 
   switch(actualState){
     case SETUP:{
-      read(); // update the payloads from slaves, récuperer le payload
+      readFromSlave(); // update the payloads from slaves, récuperer le payload
       //si payload appeler fonction assignModules
 
       // Wait for start button to move forward
@@ -241,7 +241,7 @@ void sendMessage(MasterCommand command, uint8_t receivers){
 }
 
 // To access the message and who sent it
-void read(){
+void readFromSlave(){
   uint8_t pipe; // Should an extra control for the pipe be added?
   if (radio.available(&pipe)) {              // is there a payload? get the pipe number that received it
     uint8_t bytes = radio.getDynamicPayloadSize();  // get the size of the payload
