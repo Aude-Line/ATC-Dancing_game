@@ -174,7 +174,43 @@ void loop() {
 
     }
     case STOPGAME: {}
-    case GAMEMODE1: {}
+    case GAMEMODE1: {
+      static bool gamemode1CommandSent = false;
+      if (!gamemode1CommandSent){
+        // Reset Receivers
+        receivers =0; 
+
+         // Loop through all players
+        for (uint8_t i = 0; i < MAX_PLAYERS; ++i) {
+          // Let's skip the players that don't have an assigned module
+         if (players[i].nbrOfModules > 0) {
+           // To store the module indices belonging to this player
+            uint8_t moduleIndices[NBR_SLAVES]; // assuming no player has more than number of slaves
+            uint8_t count = 0;
+
+            for (uint8_t j = 0; j < NBR_SLAVES; ++j) {
+              // Checks if bit j in the player's module bitmask is set, if yes adds j tto the module indices
+              if ((players[i].modules >> j) & 0x01) {
+               moduleIndices[count++] = j;
+              }
+            }
+            // To check if modules and slave ids correspond
+            // Randomly select one module index from this player's modules
+            uint8_t selectedModule = moduleIndices[random(0, count)];
+
+            // Set the bit for this module in the receivers bitmask
+            receivers |= (1 << selectedModule);
+          }
+        }
+
+        sendMessage(CMD_BUTTONS,receivers); // Telling all the slaves to enter setup mode
+        gamemode1CommandSent = true;
+        Serial.println("GAMEMODE1 command sent to randomly selected modules.");
+        Serial.print("Receivers bitmask: ");
+        Serial.println(receivers, BIN);
+      }
+      break;
+    }
     case GAMEMODE2: {}
     default: {}
   }
