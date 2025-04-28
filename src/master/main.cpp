@@ -10,6 +10,11 @@
 #include <button.h>
 
 enum State{SETUP, STOPGAME, GAMEMODE1, GAMEMODE2};
+enum DifficultyLevel {
+  EASY,
+  MEDIUM,
+  HARD
+};
 
 struct PlayerStruct{
   uint8_t modules; //mask
@@ -22,6 +27,17 @@ struct ModuleStruct{
 };
 PlayerStruct players[MAX_PLAYERS];
 ModuleStruct modules[NBR_SLAVES];
+
+struct Difficulty {
+  uint16_t ledDelay[2]; // Delay for LED
+  uint16_t pressTime;          // Time allowed to press the button
+};
+
+Difficulty difficultySettings[] {
+  {{5000, 6000}, 5000}, // EASY
+  {{4000, 5000}, 3000}, // MEDIUM
+  {{3000, 4000}, 1000} // HARD
+};
 
 void initPlayers(PlayerStruct* players, ModuleStruct* modules);
 void sendMessage(MasterCommand command, uint8_t receivers);
@@ -117,8 +133,7 @@ void loop() {
         Serial.println( "Start Pressed! Assigning modules");
         uint8_t gameMode = map(analogRead(POTENTIOMETER_MODE_PIN), 0, 1023, 1, 2);
         actualState = static_cast<State>(STOPGAME + gameMode); // Set the game mode based on the potentiometer value
-        // To add also difficulty potentiometer
-      
+        
         // Let's clear previous assignments
         initPlayers(players, modules);
 
@@ -149,17 +164,32 @@ void loop() {
     }
     case STOPGAME: {}
     case GAMEMODE1: {
-      if (currentTime - lastSendTime >= 2000) {  
-        // Mettre à jour le dernier temps d'envoi
-        lastSendTime = currentTime;
-        uint8_t receivers = assignButtons(players, modules, 1); 
+      static bool gamemode1CommandSent = false;
+      unsigned long currentMillis = millis();
+      uint16_t gamemode1Delay = 0;
+      static unsigned long gamemode1StartTime = 0;
+      uint8_t difficultyIndex =map(analogRead(POTENTIOMETER_DIFFICULTY_PIN), 0, 1023, 0, 2);
+      DifficultyLevel currentDifficulty = static_cast<DifficultyLevel>(difficultyIndex);
 
-        sendMessage(CMD_BUTTONS,receivers); // Telling all the slaves to enter setup mode
+
+      if (!gamemode1CommandSent){
+        // Reset Receivers
+        gamemode1Delay= random (difficultySettings[currentDifficulty].ledDelay[0],difficultySettings[currentDifficulty].ledDelay[1]+1);
+        gamemode1StartTime = currentMillis;
+        gamemode1CommandSent = true;
+        Serial.print("Scheduled GAMEMODE1 command in ");
+        Serial.print(gamemode1Delay);
+        Serial.println(" ms");
+      } else if (currentMillis - gamemode1StartTime >= gamemode1Delay) {
+        // Time to send command
+        receivers = 0;
+        receivers = assignButtons(players, modules,1);
+        sendMessage(CMD_BUTTONS, receivers);
+        
         Serial.println("GAMEMODE1 command sent to randomly selected modules.");
         Serial.print("Receivers bitmask: ");
         Serial.println(receivers, BIN);
-      }else{
-        //readFromSlave();
+        gamemode1CommandSent = false; // Reset for the next cycle
       }
       break;
     }
@@ -284,7 +314,7 @@ uint8_t assignButtons(PlayerStruct* players, ModuleStruct* modules, uint8_t nbrB
         uint8_t randomModule = random(0, players[player].nbrOfModules);
         uint8_t idModule = 0;
         while(randomModule > -1){
-          while(players[player].modules & (1 << idModule) == 0){
+          while((players[player].modules & (1 << idModule)) == 0){
             idModule++;
           }
           randomModule--;
