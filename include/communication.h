@@ -19,7 +19,8 @@ struct PayloadFromMasterStruct{
   uint16_t score;
 };
 struct PayloadFromSlaveStruct{
-  Player idPlayer; //needed for setup and adjustment
+  uint8_t slaveId; //id du slave qui envoie le message
+  Player playerId; //needed for setup and adjustment
   bool rightButtonsPressed; //en mode le/les bons boutons qui devaient être appuyés ont tous été appuyés
 };
 

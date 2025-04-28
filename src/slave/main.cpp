@@ -152,8 +152,8 @@ void resetModule(){
 
 void sendMessageToMaster(bool rightButtonsPressed){
   PayloadFromSlaveStruct payloadFromSlave;
-  
-  payloadFromSlave.idPlayer = idPlayer;
+  payloadFromSlave.slaveId = SLAVE_ID;
+  payloadFromSlave.playerId = idPlayer;
   payloadFromSlave.rightButtonsPressed = rightButtonsPressed;
 
   //début com 
