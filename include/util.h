@@ -10,15 +10,6 @@
 #define SOUND_FREQUENCY_BAD 100
 #define SOUND_FREQUENCY_NEUTRAL 600
 
-enum Player : int8_t {
-NONE = -1,
-PLAYER_1,
-PLAYER_2,
-PLAYER_3,
-PLAYER_4,
-MAX_PLAYERS//Nombre de joueurs, utilisé pour le nombre de couleurs
-};
-
 enum Color{
     RED, 
     GREEN, 
@@ -26,5 +17,14 @@ enum Color{
     YELLOW,
     NB_COLORS //Nombre de couleurs, utilisé pour le nombre de joueurs
 }; //jsp si besoin comme je suis partie du principe que on peut envoyer potentiellemnt plusieurs boutons à appuyer
+
+enum Player : int8_t {
+    NONE = -1,
+    PLAYER_RED,
+    PLAYER_GREEN,
+    PLAYER_BLUE,
+    PLAYER_YELLOW,
+    MAX_PLAYERS//Nombre de joueurs, utilisé pour le nombre de couleurs
+};
 
 #endif

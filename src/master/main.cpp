@@ -41,7 +41,7 @@ Difficulty difficultySettings[] {
 
 void initPlayers(PlayerStruct* players, ModuleStruct* modules);
 void sendMessage(MasterCommand command, uint8_t receivers);
-void readFromSlave();
+bool readFromSlave(PayloadFromSlaveStruct& payload);
 uint8_t assignButtons(PlayerStruct* players, ModuleStruct* modules, uint8_t nbrButtons=0);
 
 // instantiate an object for the nRF24L01 transceiver
@@ -51,7 +51,7 @@ unsigned long lastSendTime = 0;
 State actualState = STOPGAME; // Added a similar state as in slave to switch 
 Button* StartButton; // Defined the start and setup button and states
 Button* SetUpButton;
-PayloadFromSlaveStruct PayloadFromSlaves[NBR_SLAVES];
+PayloadFromSlaveStruct AllPayloadFromSlave[NBR_SLAVES];
 uint8_t fromSlaveID[NBR_SLAVES];
 
 
@@ -90,7 +90,9 @@ void setup() {
 }
 
 void loop() {
-  readFromSlave();
+  PayloadFromSlaveStruct payloadFromSlave;
+  bool newPayloadReceived = readFromSlave(payloadFromSlave); // update the payloads from slaves, récuperer le payload
+
   unsigned long currentTime = millis();   // Récupère le temps actuel
   // Vérifier si 2 secondes se sont écoulées
   if (currentTime - lastSendTime >= 2000) {  
@@ -125,7 +127,9 @@ void loop() {
 
   switch(actualState){
     case SETUP:{
-      readFromSlave(); // update the payloads from slaves, récuperer le payload
+      if(newPayloadReceived){
+        AllPayloadFromSlave[payloadFromSlave.slaveId] = payloadFromSlave;
+      }
       //si payload appeler fonction assignModules
 
       // Wait for start button to move forward
@@ -139,8 +143,8 @@ void loop() {
 
         // Assign modules to players
         for (uint8_t i = 0; i< NBR_SLAVES; i++){
-          Player idPlayer = PayloadFromSlave[i].idPlayer;
-          if (idPlayer != NONE && idPlayer < NB_COLORS){
+          Player idPlayer = AllPayloadFromSlave[i].playerId;
+          if (idPlayer != NONE && idPlayer < MAX_PLAYERS){
             modules[i].playerOfModule = idPlayer;
             players[idPlayer].modules |= (1 << i); //Bitmask update.
             players[idPlayer].nbrOfModules++;
@@ -182,7 +186,7 @@ void loop() {
         Serial.println(" ms");
       } else if (currentMillis - gamemode1StartTime >= gamemode1Delay) {
         // Time to send command
-        receivers = 0;
+        uint8_t receivers = 0;
         receivers = assignButtons(players, modules,1);
         sendMessage(CMD_BUTTONS, receivers);
         
