@@ -1,0 +1,88 @@
+//
+// !!! WARNING !!! AUTO-GENERATED FILE!
+// PLEASE DO NOT MODIFY IT AND USE "platformio.ini":
+// https://docs.platformio.org/page/projectconf/section_env_build.html#build-flags
+//
+{
+    "configurations": [
+        {
+            "name": "PlatformIO",
+            "includePath": [
+                "C:/Users/ovola/OneDrive/Bureau/Oceane/Etudes/EPFL/Master/MA4/ATC/Coding/ATC-Dancing_game/include",
+                "C:/Users/ovola/OneDrive/Bureau/Oceane/Etudes/EPFL/Master/MA4/ATC/Coding/ATC-Dancing_game/src",
+                "C:/Users/ovola/OneDrive/Bureau/Oceane/Etudes/EPFL/Master/MA4/ATC/Coding/ATC-Dancing_game/.pio/libdeps/master/Adafruit LED Backpack Library",
+                "C:/Users/ovola/OneDrive/Bureau/Oceane/Etudes/EPFL/Master/MA4/ATC/Coding/ATC-Dancing_game/.pio/libdeps/master/Adafruit GFX Library",
+                "C:/Users/ovola/OneDrive/Bureau/Oceane/Etudes/EPFL/Master/MA4/ATC/Coding/ATC-Dancing_game/.pio/libdeps/master/Adafruit AW9523",
+                "C:/Users/ovola/OneDrive/Bureau/Oceane/Etudes/EPFL/Master/MA4/ATC/Coding/ATC-Dancing_game/.pio/libdeps/master/Adafruit BusIO",
+                "C:/Users/ovola/.platformio/packages/framework-arduino-avr/libraries/Wire/src",
+                "C:/Users/ovola/OneDrive/Bureau/Oceane/Etudes/EPFL/Master/MA4/ATC/Coding/ATC-Dancing_game/.pio/libdeps/master/RF24",
+                "C:/Users/ovola/OneDrive/Bureau/Oceane/Etudes/EPFL/Master/MA4/ATC/Coding/ATC-Dancing_game/.pio/libdeps/master/RF24/utility",
+                "C:/Users/ovola/.platformio/packages/framework-arduino-avr/libraries/SPI/src",
+                "C:/Users/ovola/.platformio/packages/framework-arduino-avr/cores/arduino",
+                "C:/Users/ovola/.platformio/packages/framework-arduino-avr/variants/standard",
+                "C:/Users/ovola/OneDrive/Bureau/Oceane/Etudes/EPFL/Master/MA4/ATC/Coding/ATC-Dancing_game/.pio/libdeps/master/Adafruit GPS Library/src",
+                "C:/Users/ovola/OneDrive/Bureau/Oceane/Etudes/EPFL/Master/MA4/ATC/Coding/ATC-Dancing_game/.pio/libdeps/master/Adafruit ILI9341",
+                "C:/Users/ovola/OneDrive/Bureau/Oceane/Etudes/EPFL/Master/MA4/ATC/Coding/ATC-Dancing_game/.pio/libdeps/master/Adafruit SH110X",
+                "C:/Users/ovola/OneDrive/Bureau/Oceane/Etudes/EPFL/Master/MA4/ATC/Coding/ATC-Dancing_game/.pio/libdeps/master/Adafruit STMPE610",
+                "C:/Users/ovola/OneDrive/Bureau/Oceane/Etudes/EPFL/Master/MA4/ATC/Coding/ATC-Dancing_game/.pio/libdeps/master/Adafruit TSC2007",
+                "C:/Users/ovola/OneDrive/Bureau/Oceane/Etudes/EPFL/Master/MA4/ATC/Coding/ATC-Dancing_game/.pio/libdeps/master/Adafruit TouchScreen",
+                "C:/Users/ovola/OneDrive/Bureau/Oceane/Etudes/EPFL/Master/MA4/ATC/Coding/ATC-Dancing_game/.pio/libdeps/master/RTClib/src",
+                "C:/Users/ovola/OneDrive/Bureau/Oceane/Etudes/EPFL/Master/MA4/ATC/Coding/ATC-Dancing_game/.pio/libdeps/master/SD/src",
+                "C:/Users/ovola/OneDrive/Bureau/Oceane/Etudes/EPFL/Master/MA4/ATC/Coding/ATC-Dancing_game/.pio/libdeps/master/WaveHC",
+                "C:/Users/ovola/.platformio/packages/framework-arduino-avr/libraries/EEPROM/src",
+                "C:/Users/ovola/.platformio/packages/framework-arduino-avr/libraries/HID/src",
+                "C:/Users/ovola/.platformio/packages/framework-arduino-avr/libraries/SoftwareSerial/src",
+                ""
+            ],
+            "browse": {
+                "limitSymbolsToIncludedHeaders": true,
+                "path": [
+                    "C:/Users/ovola/OneDrive/Bureau/Oceane/Etudes/EPFL/Master/MA4/ATC/Coding/ATC-Dancing_game/include",
+                    "C:/Users/ovola/OneDrive/Bureau/Oceane/Etudes/EPFL/Master/MA4/ATC/Coding/ATC-Dancing_game/src",
+                    "C:/Users/ovola/OneDrive/Bureau/Oceane/Etudes/EPFL/Master/MA4/ATC/Coding/ATC-Dancing_game/.pio/libdeps/master/Adafruit LED Backpack Library",
+                    "C:/Users/ovola/OneDrive/Bureau/Oceane/Etudes/EPFL/Master/MA4/ATC/Coding/ATC-Dancing_game/.pio/libdeps/master/Adafruit GFX Library",
+                    "C:/Users/ovola/OneDrive/Bureau/Oceane/Etudes/EPFL/Master/MA4/ATC/Coding/ATC-Dancing_game/.pio/libdeps/master/Adafruit AW9523",
+                    "C:/Users/ovola/OneDrive/Bureau/Oceane/Etudes/EPFL/Master/MA4/ATC/Coding/ATC-Dancing_game/.pio/libdeps/master/Adafruit BusIO",
+                    "C:/Users/ovola/.platformio/packages/framework-arduino-avr/libraries/Wire/src",
+                    "C:/Users/ovola/OneDrive/Bureau/Oceane/Etudes/EPFL/Master/MA4/ATC/Coding/ATC-Dancing_game/.pio/libdeps/master/RF24",
+                    "C:/Users/ovola/OneDrive/Bureau/Oceane/Etudes/EPFL/Master/MA4/ATC/Coding/ATC-Dancing_game/.pio/libdeps/master/RF24/utility",
+                    "C:/Users/ovola/.platformio/packages/framework-arduino-avr/libraries/SPI/src",
+                    "C:/Users/ovola/.platformio/packages/framework-arduino-avr/cores/arduino",
+                    "C:/Users/ovola/.platformio/packages/framework-arduino-avr/variants/standard",
+                    "C:/Users/ovola/OneDrive/Bureau/Oceane/Etudes/EPFL/Master/MA4/ATC/Coding/ATC-Dancing_game/.pio/libdeps/master/Adafruit GPS Library/src",
+                    "C:/Users/ovola/OneDrive/Bureau/Oceane/Etudes/EPFL/Master/MA4/ATC/Coding/ATC-Dancing_game/.pio/libdeps/master/Adafruit ILI9341",
+                    "C:/Users/ovola/OneDrive/Bureau/Oceane/Etudes/EPFL/Master/MA4/ATC/Coding/ATC-Dancing_game/.pio/libdeps/master/Adafruit SH110X",
+                    "C:/Users/ovola/OneDrive/Bureau/Oceane/Etudes/EPFL/Master/MA4/ATC/Coding/ATC-Dancing_game/.pio/libdeps/master/Adafruit STMPE610",
+                    "C:/Users/ovola/OneDrive/Bureau/Oceane/Etudes/EPFL/Master/MA4/ATC/Coding/ATC-Dancing_game/.pio/libdeps/master/Adafruit TSC2007",
+                    "C:/Users/ovola/OneDrive/Bureau/Oceane/Etudes/EPFL/Master/MA4/ATC/Coding/ATC-Dancing_game/.pio/libdeps/master/Adafruit TouchScreen",
+                    "C:/Users/ovola/OneDrive/Bureau/Oceane/Etudes/EPFL/Master/MA4/ATC/Coding/ATC-Dancing_game/.pio/libdeps/master/RTClib/src",
+                    "C:/Users/ovola/OneDrive/Bureau/Oceane/Etudes/EPFL/Master/MA4/ATC/Coding/ATC-Dancing_game/.pio/libdeps/master/SD/src",
+                    "C:/Users/ovola/OneDrive/Bureau/Oceane/Etudes/EPFL/Master/MA4/ATC/Coding/ATC-Dancing_game/.pio/libdeps/master/WaveHC",
+                    "C:/Users/ovola/.platformio/packages/framework-arduino-avr/libraries/EEPROM/src",
+                    "C:/Users/ovola/.platformio/packages/framework-arduino-avr/libraries/HID/src",
+                    "C:/Users/ovola/.platformio/packages/framework-arduino-avr/libraries/SoftwareSerial/src",
+                    ""
+                ]
+            },
+            "defines": [
+                "PLATFORMIO=60118",
+                "ARDUINO_AVR_UNO",
+                "MODE_MASTER",
+                "NBR_SLAVES=2",
+                "F_CPU=16000000L",
+                "ARDUINO_ARCH_AVR",
+                "ARDUINO=10808",
+                "__AVR_ATmega328P__",
+                ""
+            ],
+            "cStandard": "gnu11",
+            "cppStandard": "gnu++11",
+            "compilerPath": "C:/Users/ovola/.platformio/packages/toolchain-atmelavr/bin/avr-gcc.exe",
+            "compilerArgs": [
+                "-mmcu=atmega328p",
+                ""
+            ]
+        }
+    ],
+    "version": 4
+}

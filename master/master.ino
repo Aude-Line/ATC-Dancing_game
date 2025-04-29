@@ -1,13 +1,17 @@
-const int led1 = 10, 
-          led2 = 11, 
-          led3 = 12, 
-          led4 = 13;
+const int ledR = 3, 
+          ledB = 4, 
+          ledY = 5, 
+          ledG = 6;
 
-#define potentiometer A1
+const uint8_t gameMode = A0;
+const uint8_t lightDiff = A1;
+const uint8_t pushDiff = A2;
 
 const int MAXPOTENTIOMETERVAL = 1023;
 
-int leds[] = {led1, led2, led3, led4};
+int leds[] = {ledR, ledB, ledY, ledG};
+const uint8_t potentiometers[] = {gameMode, lightDiff, pushDiff};
+
 
 //The difficulies are represented by the interval between 2 LED lighting and the delay the player can push the button
 struct Difficulty {
@@ -25,7 +29,7 @@ Difficulty difficulties[3] = {EASY, MEDIUM, HARD};
 // the setup routine runs once when you press reset:
 void setup() {
   initLED();
-  pinMode(A0, INPUT);
+  initPotentio();
   // initialize serial communication at 9600 bits per second:
   Serial.begin(9600);
 }
@@ -33,7 +37,7 @@ void setup() {
 // the loop routine runs over and over again forever:
 void loop() {
   //Get the value of the pentotiometer
-  int diffValue = analogRead(potentiometer);
+  int diffValue = analogRead(potentiometers[0]);
   Difficulty diff = getDifficulty(diffValue);
   Serial.println(diff.pushingDelay);
   Difficulty currentDiff = diff;
@@ -50,6 +54,13 @@ void initLED(){
   for(int led : leds){
       pinMode(led, OUTPUT);
   }
+}
+
+void initPotentio(){
+  pinMode(gameMode, INPUT);
+  pinMode(lightDiff, INPUT);
+  pinMode(pushDiff, INPUT);
+
 }
 
 int getGameModeDelay(int modeValue, int nbMode, int minDelay){

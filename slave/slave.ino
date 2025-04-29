@@ -85,7 +85,7 @@ void initUnit(){
   for(ButtonUnit unit : units){
       //To spare some resistors for the butons, we used the pin in build pull up resistor
       pinMode(unit.button, INPUT_PULLUP); 
-      aw.pinMode(unit.led, OUTPUT);
+      aw.pinMode(unit.led, AW9523_LED_MODE); // set to constant current drive!
   }
 }
 
@@ -112,7 +112,7 @@ void MOCKwaitLighting(int lightingInterval[2]){
   Light up the LED with the corresponding given pin 
 */
 void lightUpLED(const int ledIdx){
-  aw.digitalWrite(units[ledIdx].led, HIGH);
+  aw.analogWrite(units[ledIdx].led, 150);
 }
 
 
@@ -127,7 +127,7 @@ bool isButtonPressed(const int unitIdx, unsigned long pushingDelay){
   while (millis()-startTime < pushingDelay) {
     // Check if the correct button is pressed
     if (digitalRead(units[unitIdx].button) == LOW) { 
-      aw.digitalWrite(units[unitIdx].led, LOW); // I would add this here not outside the couple
+      aw.analogWrite(units[unitIdx].led, 0); // I would add this here not outside the couple
       //As soon as the button is pressed, the light turn off and the buzzer right song is player
       //This prevent unecessary waiting time
       return true;
@@ -136,13 +136,13 @@ bool isButtonPressed(const int unitIdx, unsigned long pushingDelay){
     // Check if any other button is pressed (wrong button)
     for (int i = 0; i < 4; i++) {
       if (i != unitIdx && digitalRead(units[i].button) == LOW) {
-        aw.digitalWrite(units[unitIdx].led, LOW);
+        aw.analogWrite(units[unitIdx].led, 150);
         return false;
       }
     }
 
   }
-  aw.digitalWrite(units[unitIdx].led, LOW);
+  aw.analogWrite(units[unitIdx].led, 0);
   return false;
 }
 
@@ -153,11 +153,11 @@ bool isButtonPressed(const int unitIdx, unsigned long pushingDelay){
 */
 void auditiveFB(bool buttonPressed){
   if(buttonPressed) {
-    tone(buzzer,2000,200);
+    tone(buzzer,3000,200);
     delay(250);
-    tone(buzzer,2000,300);
+    tone(buzzer,3000,300);
   } else {
-    tone(buzzer, 100, 500);
+    tone(buzzer, 500, 500);
   }
 }
 
