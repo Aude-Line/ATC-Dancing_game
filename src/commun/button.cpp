@@ -15,32 +15,35 @@ void Button::init() {
     digitalWrite(ledPin, LOW);          // LED éteinte (active HIGH)
   }
   ledOn = false;
-  lastState = HIGH; // état initial du bouton (non appuyé)
+  lastState = NOT_PRESSED; // état initial du bouton (non appuyé)
 }
 
-bool Button::isPressed(){ // detection uniquement d'une falling edge
-  
-  bool reading = digitalRead(buttonPin);
+ButtonState Button::state(){ // detection uniquement d'une falling edge
+  ButtonState reading = static_cast<ButtonState>(digitalRead(buttonPin));
 
   if (reading == lastState) {
     lastDebounceTime = millis(); // reset du timer
   }
 
   if ((millis() - lastDebounceTime) > DEBOUNCE_DELAY) {
-    //Serial.println("Debounce time écoulé !");
-    if (lastState == HIGH && reading == LOW) {
-      lastState = LOW;
-      return true;
-    } else if (lastState == LOW && reading == HIGH) {
-      lastState = HIGH;
-      return false; // bouton relâché
+    if (lastState == NOT_PRESSED && reading == PRESSED) {
+      lastState = PRESSED;
+      return JUST_PRESSED; // bouton appuyé
+    } else if (lastState == PRESSED && reading == NOT_PRESSED) {
+      lastState = NOT_PRESSED;
+      return JUST_RELEASED; // bouton relâché
     }
   }
-
-  return false;
+  return lastState;
 }
 
-
+void Button::toggleLed(){
+  if(ledOn) {
+    turnOffLed();
+  } else {
+    turnOnLed();
+  }
+}
 
 void Button::turnOnLed(){
   if (ledAw9523) {

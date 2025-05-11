@@ -9,12 +9,9 @@
 #include <communication.h>
 #include <button.h>
 
+// or the state, the modes should be just after the STOPGAME
 enum State{SETUP, STOPGAME, GAMEMODE1, GAMEMODE2};
-enum DifficultyLevel {
-  EASY,
-  MEDIUM,
-  HARD
-};
+enum DifficultyLevel {EASY, MEDIUM, HARD};
 
 struct PlayerStruct{
   uint8_t modules; //mask
@@ -30,7 +27,7 @@ ModuleStruct modules[NBR_SLAVES];
 
 struct Difficulty {
   uint16_t ledDelay[2]; // Delay for LED
-  uint16_t pressTime;          // Time allowed to press the button
+  uint16_t pressTime;   // Time allowed to press the button
 };
 
 Difficulty difficultySettings[] {
@@ -43,6 +40,7 @@ void initPlayers(PlayerStruct* players, ModuleStruct* modules);
 void sendMessage(MasterCommand command, uint8_t receivers);
 bool readFromSlave(PayloadFromSlaveStruct& payload);
 uint8_t assignButtons(PlayerStruct* players, ModuleStruct* modules, uint8_t nbrButtons);
+void assignModules(PlayerStruct* players, ModuleStruct* modules, PayloadFromSlaveStruct* AllPayloadFromSlaves);
 
 // instantiate an object for the nRF24L01 transceiver
 RF24 radio(CE_PIN, CSN_PIN);
@@ -51,7 +49,7 @@ unsigned long lastSendTime = 0;
 State actualState = STOPGAME; // Added a similar state as in slave to switch 
 Button* StartButton; // Defined the start and setup button and states
 Button* SetUpButton;
-PayloadFromSlaveStruct AllPayloadFromSlave[NBR_SLAVES];
+PayloadFromSlaveStruct AllPayloadFromSlaves[NBR_SLAVES];
 uint8_t fromSlaveID[NBR_SLAVES];
 uint16_t scores[MAX_PLAYERS] = {0};
 uint8_t receivers;
@@ -117,6 +115,7 @@ void loop() {
     sendMessage(command, receivers);
   }*/
 
+  /*
   // The actual game logic
   if (SetUpButton->isPressed()){
     SetUpButton->turnOnLed();
@@ -126,18 +125,66 @@ void loop() {
     sendMessage(CMD_SETUP,receivers); // Telling all the slaves to enter setup mode
     Serial.println ("Setup command sent. Waiting for players...");
   }
+  */
   
   /*if(StopisPressed){
     actualState = STOPGAME;
   }*/
+ 
+  ButtonState stateStartButton = StartButton->state();
+  switch (stateStartButton){
+    case JUST_PRESSED:{
+      SetUpButton->turnOffLed();
+      StartButton->turnOnLed();
 
+      // the game was not running, but now it is starting
+      Serial.println( "Start Pressed! Start game");
+      // If the game is in setup mode, we need to assign the modules to the players
+      if(actualState == SETUP){
+        Serial.println( "Start Pressed when in setup mode! Assigning modules");
+        assignModules(players, modules, AllPayloadFromSlaves);
+      }
+      // Set the game mode based on the potentiometer value to be able to do it easily without needing to reasign the modules
+      uint8_t gameMode = map(analogRead(POTENTIOMETER_MODE_PIN), 0, 1023, 1, 2);
+      actualState = static_cast<State>(STOPGAME + gameMode);
+
+      //TODO envoi à tout les slaves d'éteindre leurs leds, reset le score et se mette en mode game
+      break;
+    }
+    case JUST_RELEASED:{
+      // the game was running, now it is stopping
+      StartButton->turnOffLed();
+      Serial.println( "Start Released! Stop game");
+      actualState = STOPGAME;
+      //TODO envoi à tout les slaves d'éteindre leurs leds, encore afficher le score (avec gagnant?)
+      break;
+    }
+    case NOT_PRESSED:{
+      // If the game is not running, they may press on the setup button to assign the modules to the players
+      if(SetUpButton->state() == JUST_PRESSED){
+        SetUpButton->turnOnLed();
+        actualState = SETUP;
+        uint8_t receivers = (1 << NBR_SLAVES)-1; // Setting 1 to all slaves
+        sendMessage(CMD_SETUP,receivers); // Telling all the slaves to enter setup mode
+        Serial.println ("Setup command sent. Waiting for players...");
+      }
+      break;
+    }
+    default:{
+      actualState = STOPGAME;
+      break;
+    }
+  }
+
+  
   switch(actualState){
     case SETUP:{
       if(newPayloadReceived){
-        AllPayloadFromSlave[payloadFromSlave.slaveId] = payloadFromSlave;
+        AllPayloadFromSlaves[payloadFromSlave.slaveId] = payloadFromSlave;
       }
       //si payload appeler fonction assignModules
 
+      /*
       // Wait for start button to move forward
       if (StartButton ->isPressed()){
         SetUpButton->turnOffLed();
@@ -151,7 +198,7 @@ void loop() {
 
         // Assign modules to players
         for (uint8_t i = 0; i< NBR_SLAVES; i++){
-          Player idPlayer = AllPayloadFromSlave[i].playerId;
+          Player idPlayer = AllPayloadFromSlaves[i].playerId;
           if (idPlayer != NONE && idPlayer < MAX_PLAYERS){
             modules[i].playerOfModule = idPlayer;
             players[idPlayer].modules |= (1 << i); //Bitmask update.
@@ -169,8 +216,12 @@ void loop() {
           Serial.print(F("Number of modules: "));
           Serial.println(players[i].nbrOfModules);
         }
+        
         break;
+        
+        
       }
+      */
       break;
 
     }
@@ -278,6 +329,7 @@ void loop() {
     case GAMEMODE2: {}
     
   }
+  
 }
 
 void sendMessage(MasterCommand command, uint8_t receivers){
@@ -435,4 +487,30 @@ uint8_t assignButtons(PlayerStruct* players, ModuleStruct* modules, uint8_t nbrB
 
   Serial.println(receivers);  // Print the receivers bitmask for debugging
   return receivers;  // Return the receivers bitmask
+}
+
+void assignModules(PlayerStruct* players, ModuleStruct* modules, PayloadFromSlaveStruct* AllPayloadFromSlaves){
+  // Let's clear previous assignments
+  initPlayers(players, modules);
+
+  // Assign modules to players
+  for (uint8_t i = 0; i< NBR_SLAVES; i++){
+    Player idPlayer = AllPayloadFromSlaves[i].playerId;
+    if (idPlayer != NONE && idPlayer < MAX_PLAYERS){
+      modules[i].playerOfModule = idPlayer;
+      players[idPlayer].modules |= (1 << i); //Bitmask update.
+      players[idPlayer].nbrOfModules++;
+    }
+  }
+
+  // Debug print
+  Serial.println(F("\n==========ASSIGNMENTS=========="));
+  for (uint8_t i = 0; i < MAX_PLAYERS; i++) {
+    Serial.print(F("Player "));
+    Serial.print(i);
+    Serial.print(F(" has modules: 0b"));
+    Serial.println(players[i].modules, BIN);
+    Serial.print(F("Number of modules: "));
+    Serial.println(players[i].nbrOfModules);
+  }
 }
