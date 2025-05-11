@@ -19,6 +19,7 @@ void Button::init() {
 }
 
 bool Button::isPressed(){ // detection uniquement d'une falling edge
+  
   bool reading = digitalRead(buttonPin);
 
   if (reading == lastState) {
@@ -38,6 +39,8 @@ bool Button::isPressed(){ // detection uniquement d'une falling edge
 
   return false;
 }
+
+
 
 void Button::turnOnLed(){
   if (ledAw9523) {
