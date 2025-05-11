@@ -19,7 +19,7 @@
 enum GameState{STOPGAME, SETUP,GAME}; // Added different game modes as states
 
 void resetModule();
-void sendMessageToMaster(bool buttonsPressed);
+void sendMessageToMaster(bool buttonsPressed, Player playerId);
 void readFromMaster();
 void turnOffLeds();
 
@@ -84,6 +84,8 @@ void loop() {
   //Serial.println(F("\n==========CHECK SON ETAT=========="));
   bool shouldSend = false;
   bool rightButtonsPressed = false;
+  Serial.print("state :");
+  Serial.print(actualState);
   switch(actualState){
     case SETUP: {
       for(uint8_t button = 0; button < NB_COLORS; button++){
@@ -95,10 +97,12 @@ void loop() {
             turnOffLeds(); //éteindre les autres LEDS, peut être mieux optimisé
             buttons[button]->turnOnLed();
             idPlayer = (Player)button; //idPlayer = button
-            Serial.print(F("ID player: "));
+            Serial.print(F(" Setting ID player: "));
             Serial.println(idPlayer);
           }
           shouldSend = true;
+          Serial.print(F(" set to ID player: "));
+          Serial.println(idPlayer);
         }
       }
       
@@ -151,7 +155,9 @@ void loop() {
       //début com
 
     Serial.println(F("\n==NEW TRANSMISSION==\n BUTTONS PRESSED"));
-    sendMessageToMaster(rightButtonsPressed);
+    Serial.println(idPlayer);
+
+    sendMessageToMaster(rightButtonsPressed,idPlayer);
   }
 }
 
@@ -167,9 +173,12 @@ void resetModule(){
   score = 0;
 }
 
-void sendMessageToMaster(bool rightButtonsPressed){
+void sendMessageToMaster(bool rightButtonsPressed, Player idPlayer){
   PayloadFromSlaveStruct payloadFromSlave;
   payloadFromSlave.slaveId = SLAVE_ID;
+  Serial.println("dans la function player ID:");
+  Serial.println(idPlayer);
+
   payloadFromSlave.playerId = idPlayer;
   payloadFromSlave.rightButtonsPressed = rightButtonsPressed;
 
@@ -205,6 +214,8 @@ void readFromMaster(){
     // Turn on/off LEDs based on the received command
     // Update score
     // Play sound if needed
+    Serial.println("Payload from master:");
+    Serial.println(payloadFromMaster.command);
     switch (payloadFromMaster.command){
       case CMD_SETUP:
         actualState = SETUP;
@@ -222,6 +233,7 @@ void readFromMaster(){
         break;
       case CMD_SCORE: //si mauvais bouton ou pas de bouton appuyé, le master envoye SCORE_FAILED
         actualState = GAME;
+        Serial.println("READING SCORE");
         if(payloadFromMaster.score == SCORE_FAILED){
           turnOffLeds(); //éteindre les autres led si mauvais bouton appuyé
           Serial.println(F("Wrong button pressed"));
@@ -234,8 +246,10 @@ void readFromMaster(){
         }
         matrix.print(score);
         matrix.writeDisplay();
+        payloadFromMaster.command = CMD_BUTTONS;
         break;
       default: //CMD_STOP_GAME
+        Serial.print("Je suis entré dans le default case...");
         actualState = STOPGAME;
         resetModule();
         break;

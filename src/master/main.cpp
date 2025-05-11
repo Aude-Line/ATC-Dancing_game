@@ -55,6 +55,7 @@ PayloadFromSlaveStruct AllPayloadFromSlave[NBR_SLAVES];
 uint8_t fromSlaveID[NBR_SLAVES];
 uint16_t scores[MAX_PLAYERS] = {0};
 uint8_t receivers;
+PayloadFromSlaveStruct payloadFromSlave;
 
 void setup() {
   Serial.begin(9600);
@@ -91,7 +92,7 @@ void setup() {
 }
 
 void loop() {
-  PayloadFromSlaveStruct payloadFromSlave;
+  
   bool newPayloadReceived = readFromSlave(payloadFromSlave); // update the payloads from slaves, récuperer le payload
   unsigned long currentTime = millis();   // Récupère le temps actuel
   // Vérifier si 2 secondes se sont écoulées
@@ -206,7 +207,7 @@ void loop() {
       }
     
       // Time to send command
-      if (gamemode1CommandSent && ( gamemode1StartTime >= gamemode1Delay)) {
+      if (gamemode1CommandSent && ( millis()-gamemode1StartTime >= 4000)) {
         receivers = assignButtons(players, modules, 1); // Assign random buttons to modules
         sendMessage(CMD_BUTTONS, receivers);            // Send command to slaves
         sentTime = millis();
@@ -219,9 +220,9 @@ void loop() {
       }
     
       // Wait for the response window to elapse before processing results
-      if (waitingForResponse && (currentMillis - sentTime >= difficultySettings[currentDifficulty].pressTime)) {
+      if (waitingForResponse && (millis()-sentTime >= 2000)) {
         readFromSlave(payloadFromSlave);
-        Serial.println("Read");
+        
     
         players[payloadFromSlave.playerId].score += payloadFromSlave.rightButtonsPressed;
     
