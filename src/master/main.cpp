@@ -34,15 +34,15 @@ struct Difficulty {
 };
 
 Difficulty difficultySettings[] {
-  {{5000, 6000}, 5000}, // EASY
+  {{6000, 7000}, 5000}, // EASY
   {{4000, 5000}, 3000}, // MEDIUM
   {{3000, 4000}, 1000} // HARD
 };
 
 void initPlayers(PlayerStruct* players, ModuleStruct* modules);
 void sendMessage(MasterCommand command, uint8_t receivers);
-void readFromSlave();
-uint8_t assignButtons(PlayerStruct* players, ModuleStruct* modules, uint8_t nbrButtons=0);
+bool readFromSlave(PayloadFromSlaveStruct& payload);
+uint8_t assignButtons(PlayerStruct* players, ModuleStruct* modules, uint8_t nbrButtons);
 
 // instantiate an object for the nRF24L01 transceiver
 RF24 radio(CE_PIN, CSN_PIN);
@@ -51,9 +51,11 @@ unsigned long lastSendTime = 0;
 State actualState = STOPGAME; // Added a similar state as in slave to switch 
 Button* StartButton; // Defined the start and setup button and states
 Button* SetUpButton;
-PayloadFromSlaveStruct PayloadFromSlaves[NBR_SLAVES];
+PayloadFromSlaveStruct AllPayloadFromSlave[NBR_SLAVES];
 uint8_t fromSlaveID[NBR_SLAVES];
-
+uint16_t scores[MAX_PLAYERS] = {0};
+uint8_t receivers;
+PayloadFromSlaveStruct payloadFromSlave;
 
 void setup() {
   Serial.begin(9600);
@@ -90,10 +92,11 @@ void setup() {
 }
 
 void loop() {
-  readFromSlave();
+  
+  bool newPayloadReceived = readFromSlave(payloadFromSlave); // update the payloads from slaves, récuperer le payload
   unsigned long currentTime = millis();   // Récupère le temps actuel
   // Vérifier si 2 secondes se sont écoulées
-  if (currentTime - lastSendTime >= 2000) {  
+  /*if (currentTime - lastSendTime >= 2000) {  
     // Mettre à jour le dernier temps d'envoi
     lastSendTime = currentTime;
 
@@ -112,24 +115,33 @@ void loop() {
 
     // Appeler la fonction d'envoi avec la commande et les récepteurs générés
     sendMessage(command, receivers);
-  }
+  }*/
 
   // The actual game logic
   if (SetUpButton->isPressed()){
+    SetUpButton->turnOnLed();
     // If the setupbutton has been pressed enter the setupmode
     actualState = SETUP;
     uint8_t receivers = (1 << NBR_SLAVES)-1; // Setting 1 to all slaves
     sendMessage(CMD_SETUP,receivers); // Telling all the slaves to enter setup mode
     Serial.println ("Setup command sent. Waiting for players...");
   }
+  
+  /*if(StopisPressed){
+    actualState = STOPGAME;
+  }*/
 
   switch(actualState){
     case SETUP:{
-      readFromSlave(); // update the payloads from slaves, récuperer le payload
+      if(newPayloadReceived){
+        AllPayloadFromSlave[payloadFromSlave.slaveId] = payloadFromSlave;
+      }
       //si payload appeler fonction assignModules
 
       // Wait for start button to move forward
       if (StartButton ->isPressed()){
+        SetUpButton->turnOffLed();
+        StartButton->turnOnLed();
         Serial.println( "Start Pressed! Assigning modules");
         uint8_t gameMode = map(analogRead(POTENTIOMETER_MODE_PIN), 0, 1023, 1, 2);
         actualState = static_cast<State>(STOPGAME + gameMode); // Set the game mode based on the potentiometer value
@@ -139,8 +151,8 @@ void loop() {
 
         // Assign modules to players
         for (uint8_t i = 0; i< NBR_SLAVES; i++){
-          Player idPlayer = PayloadFromSlave[i].idPlayer;
-          if (idPlayer != NONE && idPlayer < NB_COLORS){
+          Player idPlayer = AllPayloadFromSlave[i].playerId;
+          if (idPlayer != NONE && idPlayer < MAX_PLAYERS){
             modules[i].playerOfModule = idPlayer;
             players[idPlayer].modules |= (1 << i); //Bitmask update.
             players[idPlayer].nbrOfModules++;
@@ -162,39 +174,109 @@ void loop() {
       break;
 
     }
-    case STOPGAME: {}
+    case STOPGAME: {
+      break;
+    }
     case GAMEMODE1: {
+      // Static variables to maintain state across loop calls
       static bool gamemode1CommandSent = false;
-      unsigned long currentMillis = millis();
-      uint16_t gamemode1Delay = 0;
+      static bool waitingForResponse = false;
       static unsigned long gamemode1StartTime = 0;
-      uint8_t difficultyIndex =map(analogRead(POTENTIOMETER_DIFFICULTY_PIN), 0, 1023, 0, 2);
+      static unsigned long sentTime = 0;
+      static uint8_t receivers = 0;
+    
+      // Determine current difficulty level based on potentiometer input
+      uint8_t difficultyIndex = map(analogRead(POTENTIOMETER_DIFFICULTY_PIN), 0, 1023, 0, 2);
       DifficultyLevel currentDifficulty = static_cast<DifficultyLevel>(difficultyIndex);
-
-
-      if (!gamemode1CommandSent){
-        // Reset Receivers
-        gamemode1Delay= random (difficultySettings[currentDifficulty].ledDelay[0],difficultySettings[currentDifficulty].ledDelay[1]+1);
-        gamemode1StartTime = currentMillis;
+    
+      unsigned long currentMillis = millis();
+      static uint16_t gamemode1Delay = 0;
+    
+      // Schedule the next command if not already scheduled
+      if (!gamemode1CommandSent) {
+        gamemode1Delay = random(
+          difficultySettings[currentDifficulty].ledDelay[0],
+          difficultySettings[currentDifficulty].ledDelay[1] + 1
+        );
+        gamemode1StartTime = millis();
         gamemode1CommandSent = true;
+    
         Serial.print("Scheduled GAMEMODE1 command in ");
         Serial.print(gamemode1Delay);
         Serial.println(" ms");
-      } else if (currentMillis - gamemode1StartTime >= gamemode1Delay) {
-        // Time to send command
-        receivers = 0;
-        receivers = assignButtons(players, modules,1);
-        sendMessage(CMD_BUTTONS, receivers);
-        
+      }
+    
+      // Time to send command
+      if (gamemode1CommandSent && ( millis()-gamemode1StartTime >= 4000)) {
+        receivers = assignButtons(players, modules, 1); // Assign random buttons to modules
+        sendMessage(CMD_BUTTONS, receivers);            // Send command to slaves
+        sentTime = millis();
+        gamemode1CommandSent = false;
+        waitingForResponse = true;
+    
         Serial.println("GAMEMODE1 command sent to randomly selected modules.");
         Serial.print("Receivers bitmask: ");
         Serial.println(receivers, BIN);
-        gamemode1CommandSent = false; // Reset for the next cycle
+      }
+    
+      // Wait for the response window to elapse before processing results
+      if (waitingForResponse && (millis()-sentTime >= 2000)) {
+        readFromSlave(payloadFromSlave);
+        
+    
+        players[payloadFromSlave.playerId].score += payloadFromSlave.rightButtonsPressed;
+    
+        PayloadFromMasterStruct payloadFromMaster;
+        payloadFromMaster.command = CMD_SCORE;
+    
+        if (payloadFromSlave.rightButtonsPressed) {
+          payloadFromMaster.score = SCORE_SUCCESS;
+    
+          Serial.println("Score sent");
+          Serial.print("✅ Player ");
+          Serial.print(payloadFromSlave.playerId);
+          Serial.print(" scored! Total score: ");
+          Serial.println(players[payloadFromSlave.playerId].score);
+        } else {
+          payloadFromMaster.score = SCORE_FAILED;
+    
+          Serial.print("❌ Player ");
+          Serial.print(payloadFromSlave.playerId);
+          Serial.println(" pressed the wrong button.");
+        }
+    
+        sendMessage(payloadFromMaster.command, receivers);
+        waitingForResponse = false; // Ready for the next round
       }
       break;
     }
+    
+        /*if (radio.available()){
+          PayloadFromSlaveStruct points;
+          radio.read(&points, sizeof(points));
+
+          Serial.print("Received from Slave ");
+          Serial.println(points.slaveId);
+
+          // Player ID
+          Player player = points.playerId;
+
+          if (player >= 0 && player < MAX_PLAYERS) {
+            if (points.rightButtonsPressed) {
+              scores[player] += 1;
+              Serial.print("✅ Player ");
+              Serial.print(player);
+              Serial.print(" scored! Total score: ");
+              Serial.println(scores[player]);
+
+            } else {
+                Serial.print("❌ Player ");
+                Serial.print(player);
+                Serial.println(" pressed the wrong button!");}}}*/
+        
+    
     case GAMEMODE2: {}
-    default: {}
+    
   }
 }
 
@@ -282,8 +364,8 @@ void initPlayers(PlayerStruct* players, ModuleStruct* modules){
 }
 
 // Function to assign random buttons to modules and players and return the receivers bitmask
-uint8_t assignButtons(PlayerStruct* players, ModuleStruct* modules, uint8_t nbrButtons=0){
-  uint8_t receivers = 0;
+uint8_t assignButtons(PlayerStruct* players, ModuleStruct* modules, uint8_t nbrButtons){
+  receivers = 0;
   //tout éteindre
   for (uint8_t i = 0; i < NBR_SLAVES; i++){
     modules[i].buttonsToPress = 0;
@@ -301,31 +383,56 @@ uint8_t assignButtons(PlayerStruct* players, ModuleStruct* modules, uint8_t nbrB
         if (colorsToLight[j] == color){ // Check if the color is already in use
           colorAttributed = false; // If it is, set the flag to false and break the loop
           break;
+
         }
       }
     } while (!colorAttributed); // Keep trying until a color is found that is not already in the array
     colorsToLight[i]=color;
   }
 
-  //atribuer un module à chaque couleur
-  if(nbrButtons > 0 and nbrButtons <= NB_COLORS){
-    for(uint8_t player = 0; player <NB_COLORS; player++){
-      for(uint8_t button = 0; button < nbrButtons; button++){
-        uint8_t randomModule = random(0, players[player].nbrOfModules);
-        uint8_t idModule = 0;
-        while(randomModule > -1){
-          while((players[player].modules & (1 << idModule)) == 0){
-            idModule++;
+  // Assign a module to each color for players with modules
+  if (nbrButtons > 0 && nbrButtons <= NB_COLORS) {
+    for (uint8_t player = 0; player < NB_COLORS; player++) {
+      if (players[player].nbrOfModules > 0) {  // Only process players who have modules
+        for (uint8_t button = 0; button < nbrButtons; button++) {
+          // Find all available modules for this player
+          uint8_t availableModules = players[player].modules;  // Get the bitmask of available modules
+          uint8_t validModuleCount = 0;  // To count the valid modules
+          
+          // Count the number of modules available for the player
+          for (uint8_t i = 0; i < NBR_SLAVES; i++) {
+            if ((availableModules & (1 << i)) != 0) {  // Check if module i is available for the player
+              validModuleCount++;
+            }
           }
-          randomModule--;
+
+          // If there are valid modules, select one randomly
+          if (validModuleCount > 0) {
+            uint8_t randomModuleIndex = random(0, validModuleCount);  // Randomly select a module index
+            uint8_t selectedModule = 0;  // This will hold the selected module id
+
+            // Iterate through the available modules and find the randomly selected one
+            for (uint8_t i = 0; i < NBR_SLAVES; i++) {
+              if ((availableModules & (1 << i)) != 0) {  // If the module is available for the player
+                if (randomModuleIndex == 0) {
+                  selectedModule = i;  // Found the randomly selected module
+                  break;
+                }
+                randomModuleIndex--;  // Decrement the counter
+              }
+            }
+
+            // Now that we have selected a module, assign the button to it
+            modules[selectedModule].buttonsToPress |= (1 << colorsToLight[button]);  // Set the bit for this button in the module's buttonsToPress bitmask
+            receivers |= (1 << player);  // Set the bit for this player in the receivers bitmask (only if they have modules)
+          }
         }
-        modules[idModule].buttonsToPress |= (1 << colorsToLight[button]); // Set the bit for this button in the module's buttonsToPress bitmask
-        receivers |= (1 << idModule); // Set the bit for this module in the receivers bitmask
       }
     }
-  }else{
-    receivers = (1 << NBR_SLAVES)-1; // Setting 1 to all slaves
+  } else {
+    receivers = (1 << NBR_SLAVES) - 1;  // If no buttons, set all players as receivers
   }
 
-  return receivers; // Return the receivers bitmask
+  Serial.println(receivers);  // Print the receivers bitmask for debugging
+  return receivers;  // Return the receivers bitmask
 }
