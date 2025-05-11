@@ -13,7 +13,7 @@
 #define SLAVE_ID -1
 #endif
 
-enum GameState{STOPGAME, SETUP,GAME}; // Added different game modes as states
+enum GameState{STOPGAME, SETUP, GAME}; // Added different game modes as states
 
 void resetModule();
 void sendMessageToMaster(bool buttonsPressed);
