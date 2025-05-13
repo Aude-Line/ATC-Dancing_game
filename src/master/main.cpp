@@ -142,10 +142,15 @@ void loop() {
       // If the game is in setup mode, we need to assign the modules to the players
       if(actualState == SETUP){
         Serial.println( "Start Pressed when in setup mode! Assigning modules");
+        uint8_t receivers = (1 << NBR_SLAVES)-1; // Setting 1 to all slaves
+        sendMessage(CMD_SETUP,receivers); // Telling all the slaves to enter setup mode
+        Serial.println ("Setup command sent. Waiting for players...");
         assignModules(players, modules, AllPayloadFromSlaves);
       }
       // Set the game mode based on the potentiometer value to be able to do it easily without needing to reasign the modules
-      uint8_t gameMode = map(analogRead(POTENTIOMETER_MODE_PIN), 0, 1023, 1, 2);
+      //uint8_t gameMode = map(analogRead(POTENTIOMETER_MODE_PIN), 0, 1023, 1, 2);
+      uint8_t gameMode =1;
+
       actualState = static_cast<State>(STOPGAME + gameMode);
 
       //TODO envoi à tout les slaves d'éteindre leurs leds, reset le score et se mette en mode game
