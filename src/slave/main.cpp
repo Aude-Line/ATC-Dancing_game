@@ -84,12 +84,10 @@ void loop() {
   //Serial.println(F("\n==========CHECK SON ETAT=========="));
   bool shouldSend = false;
   bool rightButtonsPressed = false;
-  Serial.print("state :");
-  Serial.print(actualState);
   switch(actualState){
     case SETUP: {
       for(uint8_t button = 0; button < NB_COLORS; button++){
-        if(buttons[button]->isPressed()){
+        if(buttons[button]->state() == JUST_PRESSED){
           if(buttons[button]->isLedOn()){
             buttons[button]->turnOffLed();
             idPlayer = NONE;
@@ -112,7 +110,7 @@ void loop() {
       uint8_t nbrOfNotPressedButtons = 0;
       bool atLeastOneButtonPressed = false;
       for(uint8_t button = 0; button < NB_COLORS; button++){
-        if(buttons[button]->isPressed()){
+        if(buttons[button]->state() == JUST_PRESSED){ //un bouton a été appuyé
           atLeastOneButtonPressed = true;
           if(buttons[button]->isLedOn()){
             rightButtonsPressed = true;
