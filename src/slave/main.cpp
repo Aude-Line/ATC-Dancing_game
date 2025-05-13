@@ -76,6 +76,8 @@ void setup() {
   radio.openReadingPipe(1, addresses[0]+SLAVE_ID);
   radio.startListening();
   matrix.setBrightness(7);
+  resetModule();
+
 }
 
 void loop() {
@@ -92,6 +94,7 @@ void loop() {
           if(buttons[button]->isLedOn()){
             buttons[button]->turnOffLed();
             idPlayer = NONE;
+            
           }else{
             turnOffLeds(); //éteindre les autres LEDS, peut être mieux optimisé
             buttons[button]->turnOnLed();
@@ -167,6 +170,7 @@ void turnOffLeds(){
 }
 
 void resetModule(){
+  Serial.println("Reset");
   turnOffLeds();
   idPlayer = NONE;
   score = 0;
@@ -218,7 +222,7 @@ void readFromMaster(){
     switch (payloadFromMaster.command){
       case CMD_SETUP:
         actualState = SETUP;
-        resetModule();
+        //resetModule();
         break;
       case CMD_BUTTONS:
         actualState = GAME;

@@ -55,6 +55,9 @@ uint16_t scores[MAX_PLAYERS] = {0};
 uint8_t receivers;
 PayloadFromSlaveStruct payloadFromSlave;
 
+static bool gamemode1CommandSent = false;
+static bool waitingForResponse = false;
+
 void setup() {
   Serial.begin(9600);
   Serial.println("Je suis le master !");
@@ -96,23 +99,7 @@ void loop() {
   // Vérifier si 2 secondes se sont écoulées
   /*if (currentTime - lastSendTime >= 2000) {  
     // Mettre à jour le dernier temps d'envoi
-    lastSendTime = currentTime;
-
-    // Générer une commande aléatoire entre 0 et 4 (selon les valeurs possibles de l'énum)
-    //MasterCommand command = static_cast<MasterCommand>(random(0, 1));  // Random entre 0 et 4 (STOP_GAME à MISSED_BUTTONS)
-    MasterCommand command = CMD_SETUP;  // Pour tester, on envoie toujours la même commande
-    // Générer un masque de récepteurs aléatoire
-    uint8_t receivers = random(0, (1 << NBR_SLAVES));  // Masque binaire avec NBR_SLAVES bits
-
-    Serial.println(F("\n==========VALS COMMAND AND RECEIVERS=========="));
-    // Afficher les valeurs dans le terminal pour vérifier
-    Serial.print(F("Random command: "));
-    Serial.println(command);
-    Serial.print(F("Random receivers mask: "));
-    Serial.println(receivers, BIN);  // Affiche en binaire
-
-    // Appeler la fonction d'envoi avec la commande et les récepteurs générés
-    sendMessage(command, receivers);
+   
   }*/
 
   /*
@@ -233,13 +220,12 @@ void loop() {
     case STOPGAME: {
       break;
     }
+   
     case GAMEMODE1: {
       // Static variables to maintain state across loop calls
-      static bool gamemode1CommandSent = false;
-      static bool waitingForResponse = false;
+
       static unsigned long gamemode1StartTime = 0;
       static unsigned long sentTime = 0;
-      static uint8_t receivers = 0;
     
       // Determine current difficulty level based on potentiometer input
       uint8_t difficultyIndex = map(analogRead(POTENTIOMETER_DIFFICULTY_PIN), 0, 1023, 0, 2);
@@ -260,10 +246,11 @@ void loop() {
         Serial.print("Scheduled GAMEMODE1 command in ");
         Serial.print(gamemode1Delay);
         Serial.println(" ms");
+        Serial.println( gamemode1StartTime);
       }
     
       // Time to send command
-      if (gamemode1CommandSent && ( millis()-gamemode1StartTime >= 4000)) {
+      if ( gamemode1CommandSent && (gamemode1StartTime >= 4000)) {
         receivers = assignButtons(players, modules, 1); // Assign random buttons to modules
         sendMessage(CMD_BUTTONS, receivers);            // Send command to slaves
         sentTime = millis();
@@ -276,7 +263,7 @@ void loop() {
       }
     
       // Wait for the response window to elapse before processing results
-      if (waitingForResponse && (millis()-sentTime >= 2000)) {
+      if (waitingForResponse && (sentTime >= 2000)) {
         readFromSlave(payloadFromSlave);
         
     
@@ -505,6 +492,9 @@ void assignModules(PlayerStruct* players, ModuleStruct* modules, PayloadFromSlav
       modules[i].playerOfModule = idPlayer;
       players[idPlayer].modules |= (1 << i); //Bitmask update.
       players[idPlayer].nbrOfModules++;
+    }
+    if(idPlayer == NONE){
+      players[idPlayer].nbrOfModules = 0;
     }
   }
 
