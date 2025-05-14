@@ -2,16 +2,17 @@
 
 Adafruit_AW9523 aw;
 
-const unsigned int button1 = 3,
-          button2 = 4,
-          button3 = 5,
-          button4 = 6;
+int n= 3;
+const unsigned int button1 = n,
+          button2 = n,
+          button3 = n,
+          button4 = n;
 
 //Momentary implementation of pin connected LEDs instead of LED strips connected bc I2C
-const unsigned int led1 = 3,
-          led2 = 4, 
-          led3 = 5, 
-          led4 = 6;
+const unsigned int led1 = n,
+          led2 = n, 
+          led3 = n, 
+          led4 = n;
 
 const unsigned int buzzer = 8;
 
@@ -45,6 +46,8 @@ const Difficulty HARD   = {{3000, 2000}, 2000};
 void setup(){
   initBoard();
   initAllPins();
+  Serial.begin(9600);
+
 }
 
 void loop(){
@@ -60,7 +63,6 @@ void loop(){
 
 void initBoard(){
   while (!Serial) delay(1);  // wait for serial port to open
-  
   Serial.println("Adafruit AW9523 GPIO Expander test!");
 
   
@@ -136,7 +138,8 @@ bool isButtonPressed(const int unitIdx, unsigned long pushingDelay){
     // Check if any other button is pressed (wrong button)
     for (int i = 0; i < 4; i++) {
       if (i != unitIdx && digitalRead(units[i].button) == LOW) {
-        aw.analogWrite(units[unitIdx].led, 150);
+        aw.analogWrite(units[unitIdx].led, 0);
+        Serial.println(i);
         return false;
       }
     }
