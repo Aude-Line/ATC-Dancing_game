@@ -36,6 +36,8 @@ Button* buttons[4];
 GameState actualState = STOPGAME;
 uint16_t score = 0;
 Player idPlayer = NONE; // Pour l'instant à attribuer mieux après
+bool shouldSend = false;
+bool rightButtonsPressed = false;
 
 void setup() {
   Serial.begin(9600);
@@ -71,6 +73,8 @@ void setup() {
   }
   radio.setChannel(125);
   radio.setPALevel(RF24_PA_LOW);
+  radio.setRetries(5, 15);
+  radio.setAutoAck(true);
   radio.enableDynamicPayloads(); //as we have different payload size
   radio.openWritingPipe(addresses[1]+SLAVE_ID);
   radio.openReadingPipe(1, addresses[0]+SLAVE_ID);
@@ -84,8 +88,7 @@ void loop() {
   //Serial.println(F("\n==========LECTURE=========="));
   readFromMaster();
   //Serial.println(F("\n==========CHECK SON ETAT=========="));
-  bool shouldSend = false;
-  bool rightButtonsPressed = false;
+
 
   switch(actualState){
     case SETUP: {
@@ -111,8 +114,10 @@ void loop() {
       break;
     }
     case GAME: {
+      turnOffLeds();
       uint8_t nbrOfNotPressedButtons = 0;
       bool atLeastOneButtonPressed = false;
+      
       for(uint8_t button = 0; button < NB_COLORS; button++){
         if(buttons[button]->state()==JUST_PRESSED){
           atLeastOneButtonPressed = true;
@@ -160,13 +165,18 @@ void loop() {
     Serial.println(idPlayer);
 
     sendMessageToMaster(rightButtonsPressed,idPlayer);
+    shouldSend = false;
   }
 }
 
 void turnOffLeds(){
   for (uint8_t button=0; button<NB_COLORS; ++button){
     buttons[button]->turnOffLed();
-  }
+static unsigned long gamemode1StartTime = 0;
+static unsigned long sentTime = 0;
+static uint16_t gamemode1Delay = 0;
+
+unsigned long currentMillis = millis();  }
 }
 
 void resetModule(){
@@ -205,8 +215,9 @@ void sendMessageToMaster(bool rightButtonsPressed, Player idPlayer){
 }
 
 void readFromMaster(){
-  PayloadFromMasterStruct payloadFromMaster;
-  if (radio.available()) {              // is there a payload? get the pipe number that received it
+  if (radio.available()) {  
+    PayloadFromMasterStruct payloadFromMaster;
+    // is there a payload? get the pipe number that received it
     uint8_t bytes = radio.getDynamicPayloadSize();  // get the size of the payload
     radio.read(&payloadFromMaster, bytes);             // fetch payload from FIFO
 
@@ -215,10 +226,10 @@ void readFromMaster(){
 
     // Change mode based on the command received
     // Turn on/off LEDs based on the received command
-    // Update score
-    // Play sound if needed
+  
     Serial.println("Payload from master:");
     Serial.println(payloadFromMaster.command);
+
     switch (payloadFromMaster.command){
       case CMD_SETUP:
         actualState = SETUP;
@@ -229,6 +240,7 @@ void readFromMaster(){
         for (uint8_t button=0; button<NB_COLORS; ++button){
           if(payloadFromMaster.buttonsToPress & (1 << button)){
             buttons[button]->turnOnLed();
+            Serial.println("Turning on LED");
           }else{
             buttons[button]->turnOffLed();
           }
@@ -249,7 +261,6 @@ void readFromMaster(){
         }
         matrix.print(score);
         matrix.writeDisplay();
-        payloadFromMaster.command = CMD_BUTTONS;
         break;
       default: //CMD_STOP_GAME
         Serial.print("Je suis entré dans le default case...");
