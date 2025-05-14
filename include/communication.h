@@ -11,6 +11,7 @@ enum MasterCommand : uint8_t {
     CMD_SETUP,
     CMD_BUTTONS,
     CMD_SCORE,
+    CMD_START_GAME,
 };
 
 struct PayloadFromMasterStruct{

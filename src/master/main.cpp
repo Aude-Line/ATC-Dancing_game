@@ -3,6 +3,9 @@
 #include <SPI.h>
 #include "printf.h"
 #include "RF24.h"
+//#include "WT2605C_Player.h"
+#include <SoftwareSerial.h>
+
 
 #include <master_pins.h>
 #include <util.h>
@@ -46,6 +49,10 @@ void assignModules(PlayerStruct* players, ModuleStruct* modules, PayloadFromSlav
 // instantiate an object for the nRF24L01 transceiver
 RF24 radio(CE_PIN, CSN_PIN);
 unsigned long lastSendTime = 0;
+
+// MP3
+SoftwareSerial SSerial(3, 2); //use D2,D3 to simulate RX,TX
+//WT2605C<SoftwareSerial> Mp3Player;
 
 State actualState = STOPGAME; // Added a similar state as in slave to switch 
 Button* StartButton; // Defined the start and setup button and states
@@ -132,7 +139,7 @@ void loop() {
       if(actualState == SETUP){
         Serial.println( "Start Pressed when in setup mode! Assigning modules");
         uint8_t receivers = (1 << NBR_SLAVES)-1; // Setting 1 to all slaves
-        //sendMessage(CMD_SETUP,receivers); // Telling all the slaves to enter setup mode
+        sendMessage(CMD_START_GAME,receivers); // Telling all the slaves to enter setup mode
         Serial.println ("Setup command sent. Waiting for players...");
         assignModules(players, modules, AllPayloadFromSlaves);
       }

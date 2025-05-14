@@ -262,6 +262,11 @@ void readFromMaster(){
         matrix.print(score);
         matrix.writeDisplay();
         break;
+      case CMD_START_GAME: {
+        actualState = GAME;
+        turnOffLeds();
+        Serial.println("Ready to start the game!");
+      }
       default: //CMD_STOP_GAME
         Serial.print("Je suis entré dans le default case...");
         actualState = STOPGAME;
