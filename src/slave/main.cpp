@@ -114,10 +114,10 @@ void loop() {
       break;
     }
     case GAME: {
-      turnOffLeds();
       uint8_t nbrOfNotPressedButtons = 0;
       bool atLeastOneButtonPressed = false;
-      
+      Serial.println("Lighitn buttons");
+      readFromMaster();
       for(uint8_t button = 0; button < NB_COLORS; button++){
         if(buttons[button]->state() == JUST_PRESSED){ //un bouton a été appuyé
           atLeastOneButtonPressed = true;
@@ -262,11 +262,14 @@ void readFromMaster(){
         matrix.print(score);
         matrix.writeDisplay();
         break;
-      case CMD_START_GAME: {
+      case CMD_START_GAME: 
         actualState = GAME;
         turnOffLeds();
         Serial.println("Ready to start the game!");
-      }
+      case CMD_STOP_GAME:
+        Serial.println("Stopping Game");
+        actualState = STOPGAME;
+        break;
       default: //CMD_STOP_GAME
         Serial.print("Je suis entré dans le default case...");
         actualState = STOPGAME;

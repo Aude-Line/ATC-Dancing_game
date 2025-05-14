@@ -140,7 +140,7 @@ void loop() {
         Serial.println( "Start Pressed when in setup mode! Assigning modules");
         uint8_t receivers = (1 << NBR_SLAVES)-1; // Setting 1 to all slaves
         sendMessage(CMD_START_GAME,receivers); // Telling all the slaves to enter setup mode
-        Serial.println ("Setup command sent. Waiting for players...");
+        Serial.println ("Start command sent. Waiting for players...");
         assignModules(players, modules, AllPayloadFromSlaves);
       }
       // Set the game mode based on the potentiometer value to be able to do it easily without needing to reasign the modules
@@ -174,6 +174,12 @@ void loop() {
       }
       break;
     }
+    case PRESSED:{
+      Serial.println("Start still pressed");
+      break;
+    }
+      
+
     default:{
       actualState = STOPGAME;
       break;
@@ -185,13 +191,7 @@ void loop() {
     case SETUP:{
 
       if(newPayloadReceived){
-        Serial.println("Before");
-        Serial.println(AllPayloadFromSlaves[payloadFromSlave.slaveId].playerId);
-    
         AllPayloadFromSlaves[payloadFromSlave.slaveId] = payloadFromSlave;
-        Serial.println("After");
-
-        Serial.println(AllPayloadFromSlaves[payloadFromSlave.slaveId].playerId);
       }
       //si payload appeler fonction assignModules
 
@@ -237,6 +237,9 @@ void loop() {
 
     }
     case STOPGAME: {
+      uint8_t receivers = (1 << NBR_SLAVES)-1; // Setting 1 to all slaves
+      sendMessage(CMD_STOP_GAME,receivers); // Telling all the slaves to enter setup mode
+      Serial.println ("Stopgame command sent.");
       break;
     }
    
@@ -250,9 +253,12 @@ void loop() {
       // Determine current difficulty level based on potentiometer input
       uint8_t difficultyIndex = map(analogRead(POTENTIOMETER_DIFFICULTY_PIN), 0, 1023, 0, 2);
       DifficultyLevel currentDifficulty = static_cast<DifficultyLevel>(difficultyIndex);
-    
+      Serial.println("Difficulty level chosen:");
+      Serial.println(currentDifficulty);
+
       unsigned long currentMillis = millis();
-      
+      Serial.println("GamemodeCommand sent:");
+      Serial.println(gamemode1CommandSent);
     
       // Schedule the next command if not already scheduled
       if (!gamemode1CommandSent) {
@@ -265,14 +271,13 @@ void loop() {
     
         Serial.print("Scheduled GAMEMODE1 command in ");
         Serial.print(gamemode1Delay);
-        Serial.println(" ms");
+        Serial.println(" ms\n Gamestart time:");
         Serial.println( gamemode1StartTime);
       }
     
       // Time to send command
-      if ( gamemode1CommandSent) {
 
-      //if ( gamemode1CommandSent && (currentMillis-gamemode1StartTime >= gamemode1Delay)) {
+      if ( gamemode1CommandSent && (currentMillis-gamemode1StartTime >= gamemode1Delay)) {
         receivers = assignButtons(players, modules, 1); // Assign random buttons to modules
         sendMessage(CMD_BUTTONS, receivers);            // Send command to slaves
         sentTime = millis();
@@ -285,9 +290,8 @@ void loop() {
       }
     
       // Wait for the response window to elapse before processing results
-      if (waitingForResponse ){
-        delay(1000);
-      //if (waitingForResponse && (currentMillis - sentTime >= difficultySettings[currentDifficulty].pressTime)){
+
+      if (waitingForResponse && (currentMillis - sentTime >= difficultySettings[currentDifficulty].pressTime)){
         readFromSlave(payloadFromSlave);
         
     
@@ -315,6 +319,8 @@ void loop() {
         sendMessage(payloadFromMaster.command, receivers);
         waitingForResponse = false; // Ready for the next round
         Serial.println("Envoyè les boutons");
+        Serial.println("Actual State");
+        Serial.println(actualState);
       }
       break;}
     
