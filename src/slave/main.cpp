@@ -38,6 +38,7 @@ uint16_t score = 0;
 Player idPlayer = NONE; // Pour l'instant à attribuer mieux après
 bool shouldSend = false;
 bool rightButtonsPressed = false;
+bool waitingForScore = false;
 
 void setup() {
   Serial.begin(9600);
@@ -138,6 +139,8 @@ void loop() {
           }
         }else if(buttons[button]->isLedOn()){ //un bouton qui doit être appuyé n'a pas encore été appuyé
           nbrOfNotPressedButtons++;
+          rightButtonsPressed = false;
+          shouldSend = true;
 
         }
       }
@@ -244,6 +247,7 @@ void readFromMaster(){
           }else{
             buttons[button]->turnOffLed();
           }
+          waitingForScore = true;
         }
         break;
       case CMD_SCORE: //si mauvais bouton ou pas de bouton appuyé, le master envoye SCORE_FAILED
@@ -261,11 +265,13 @@ void readFromMaster(){
         }
         matrix.print(score);
         matrix.writeDisplay();
+        waitingForScore = false;
         break;
       case CMD_START_GAME: 
         actualState = GAME;
         turnOffLeds();
         Serial.println("Ready to start the game!");
+        break;
       case CMD_STOP_GAME:
         Serial.println("Stopping Game");
         actualState = STOPGAME;
