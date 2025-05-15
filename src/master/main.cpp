@@ -11,6 +11,7 @@
 #include <util.h>
 #include <communication.h>
 #include <button.h>
+#include <mp3.h>
 
 // or the state, the modes should be just after the STOPGAME
 enum State{SETUP, STOPGAME, GAMEMODE1, GAMEMODE2, GAMEMODE3};
@@ -58,6 +59,7 @@ SoftwareSerial SSerial(3, 2); //use D2,D3 to simulate RX,TX
 State actualState = STOPGAME; // Added a similar state as in slave to switch 
 Button* StartButton; // Defined the start and setup button and states
 Button* SetUpButton;
+MP3Module* mp3Module;
 PayloadFromSlaveStruct AllPayloadFromSlaves[NBR_SLAVES];
 uint8_t fromSlaveID[NBR_SLAVES];
 uint16_t scores[MAX_PLAYERS] = {0};
@@ -83,6 +85,9 @@ void setup() {
   // Inizialization of buttons and potentiometers
   StartButton = new Button(START_BUTTON_PIN, START_LED_PIN);
   SetUpButton = new Button (SETUP_BUTTON_PIN, SETUP_LED_PIN);
+
+  //Initalize the mp3 player
+  mp3Module = new MP3Module();
 
   pinMode(POTENTIOMETER_MODE_PIN, INPUT);
   pinMode(POTENTIOMETER_DIFFICULTY_PIN, INPUT);
@@ -116,7 +121,8 @@ void loop() {
       StartButton->turnOnLed();
 
       // the game was not running, but now it is starting
-      Serial.println( "Start Pressed! Start game");
+      Serial.println("Start Pressed! Start game");
+      //mp3Module->playTrack("cool-impact-movie-trailer-2909.mp3"); // Play the start sound
       // If the game is in setup mode, we need to assign the modules to the players
       if(actualState == SETUP){
         Serial.println( "Start Pressed when in setup mode! Assigning modules");
@@ -220,10 +226,40 @@ void loop() {
           Serial.print(payloadFromSlave.playerId);
           Serial.println(" pressed the wrong button.");
         }
-      }
     
-      break;
-    }
+        sendCommand(payloadFromMaster.command, receivers);
+        waitingForResponse = false; // Ready for the next round
+        Serial.println("Envoye les boutons");
+        Serial.println("Actual State");
+        Serial.println(actualState);
+      }
+      break;}
+    
+    
+        /*if (radio.available()){
+          PayloadFromSlaveStruct points;
+          radio.read(&points, sizeof(points));
+
+          Serial.print("Received from Slave ");
+          Serial.println(points.slaveId);
+
+          // Player ID
+          Player player = points.playerId;
+
+          if (player >= 0 && player < MAX_PLAYERS) {
+            if (points.rightButtonsPressed) {
+              scores[player] += 1;
+              Serial.print("✅ Player ");
+              Serial.print(player);
+              Serial.print(" scored! Total score: ");
+              Serial.println(scores[player]);
+
+            } else {
+                Serial.print("❌ Player ");
+                Serial.print(player);
+                Serial.println(" pressed the wrong button!");}}}*/
+        
+    
     case GAMEMODE2: {
       // Get current difficulty level
       uint8_t difficultyIndex = map(analogRead(POTENTIOMETER_DIFFICULTY_PIN),0,1023,0,2);
