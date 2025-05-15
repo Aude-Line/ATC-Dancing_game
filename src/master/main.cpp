@@ -3,8 +3,7 @@
 #include <SPI.h>
 #include "printf.h"
 #include "RF24.h"
-//#include "WT2605C_Player.h"
-#include <SoftwareSerial.h>
+#include <mp3.h>
 
 
 #include <master_pins.h>
@@ -51,13 +50,11 @@ void assignModules(PlayerStruct* players, ModuleStruct* modules, PayloadFromSlav
 RF24 radio(CE_PIN, CSN_PIN);
 unsigned long lastSendTime = 0;
 
-// MP3
-SoftwareSerial SSerial(3, 2); //use D2,D3 to simulate RX,TX
-//WT2605C<SoftwareSerial> Mp3Player;
 
 State actualState = STOPGAME; // Added a similar state as in slave to switch 
 Button* StartButton; // Defined the start and setup button and states
 Button* SetUpButton;
+MP3Module* mp3Module;
 PayloadFromSlaveStruct AllPayloadFromSlaves[NBR_SLAVES];
 uint8_t fromSlaveID[NBR_SLAVES];
 uint16_t scores[MAX_PLAYERS] = {0};
@@ -82,6 +79,9 @@ void setup() {
   // Inizialization of buttons and potentiometers
   StartButton = new Button(START_BUTTON_PIN, START_LED_PIN);
   SetUpButton = new Button (SETUP_BUTTON_PIN, SETUP_LED_PIN);
+
+  //Initalize the mp3 player
+  mp3Module = new MP3Module();
 
   pinMode(POTENTIOMETER_MODE_PIN, INPUT);
   pinMode(POTENTIOMETER_DIFFICULTY_PIN, INPUT);
