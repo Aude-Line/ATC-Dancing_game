@@ -16,7 +16,7 @@ enum DifficultyLevel {EASY, MEDIUM, HARD};
 
 struct PlayerStruct{
   uint8_t modules; //mask
-  uint8_t nbrOfModules; //calcul dynamique avec modules
+  uint8_t nbrOfModules; //calcul dynamique avec modules 
   uint16_t score;
 };
 struct ModuleStruct{
