@@ -35,9 +35,12 @@ struct Difficulty {
 };
 
 Difficulty difficultySettings[] {
+  {{7000, 8000}, 3000, 0.1}, // MEDIUM
   {{6000, 7000}, 5000, 0.05}, // EASY
   {{4000, 5000}, 3000, 0.1}, // MEDIUM
-  {{3000, 4000}, 1000, 0.2} // HARD
+  {{3000, 4000}, 1000, 0.2}, // HARD
+  {{2000, 3000}, 5000, 0.05}, // EASY
+  {{1000, 2000}, 1000, 0.2} // HARD
 };
 
 void initPlayers(PlayerStruct* players, ModuleStruct* modules);
@@ -66,6 +69,7 @@ PayloadFromSlaveStruct payloadFromSlave;
 
 bool gamemode1CommandSent = false;
 bool waitingForResponse = false;
+bool assignedPlayers = false;
 
 unsigned long currentMillis = millis();
 unsigned long previousMillis = currentMillis;
@@ -120,17 +124,25 @@ void loop() {
       if(actualState == SETUP){
         Serial.println( "Start Pressed when in setup mode! Assigning modules");
         assignModules(players, modules, AllPayloadFromSlaves);
+        assignedPlayers = true;
       }
       // Set the game mode based on the potentiometer value to be able to do it easily without needing to reasign the modules
-      //uint8_t gameMode = map(analogRead(POTENTIOMETER_MODE_PIN), 0, 1023, 1, 2);
-      uint8_t gameMode = 2;
+      //uint8_t gameMode = map(analogRead(POTENTIOMETER_MODE_PIN), 0, 1023, 1, 3);
+      uint8_t gameMode = 3;
+      Serial.println("We are in mode:");
+      Serial.println(gameMode);
       actualState = static_cast<State>(STOPGAME + gameMode);
       previousMillis = millis(); //reset the timer
 
-      //envoi à tout les slaves d'éteindre leurs leds, reset le score et se mette en mode game
-      uint8_t receivers = (1 << NBR_SLAVES)-1; // Setting 1 to all slaves
-      sendCommand(CMD_START_GAME,receivers); // Telling all the slaves to enter game mode
-      Serial.println ("Start command sent. Waiting for players...");
+      if(assignedPlayers){
+        //envoi à tout les slaves d'éteindre leurs leds, reset le score et se mette en mode game
+        uint8_t receivers = (1 << NBR_SLAVES)-1; // Setting 1 to all slaves
+        sendCommand(CMD_START_GAME,receivers); // Telling all the slaves to enter game mode
+        Serial.println ("Start command sent. Waiting for players...");
+      } else {
+        Serial.println("Pick a player first!");
+        // To implement sound feeedback
+      }
       break;
     }
     case JUST_RELEASED:{
@@ -177,13 +189,14 @@ void loop() {
     }
     case STOPGAME: {
       // If the game is stopped, we wait, the signal was already send to the modules
+      assignedPlayers = false; // Do we want it like this?
       break;
     }
     case GAMEMODE1: {
 
 
       // Determine current difficulty level based on potentiometer input
-      uint8_t difficultyIndex = map(analogRead(POTENTIOMETER_DIFFICULTY_PIN), 0, 1023, 0, 2);
+      uint8_t difficultyIndex = map(analogRead(POTENTIOMETER_DIFFICULTY_PIN), 0, 1023, 0, 5);
       DifficultyLevel currentDifficulty = static_cast<DifficultyLevel>(difficultyIndex);
       Serial.println("Difficulty level chosen:");
       Serial.println(currentDifficulty);
@@ -217,7 +230,7 @@ void loop() {
 
     case GAMEMODE2: {
       // Get current difficulty level
-      uint8_t difficultyIndex = map(analogRead(POTENTIOMETER_DIFFICULTY_PIN),0,1023,0,2);
+      uint8_t difficultyIndex = map(analogRead(POTENTIOMETER_DIFFICULTY_PIN),0,1023,0,5);
       DifficultyLevel currentDifficulty = static_cast<DifficultyLevel>(difficultyIndex);
       
       // Define variables for controlling the speed cycle and button timing

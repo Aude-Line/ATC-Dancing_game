@@ -80,7 +80,7 @@ void setup() {
   radio.openWritingPipe(addresses[1]+SLAVE_ID);
   radio.openReadingPipe(1, addresses[0]+SLAVE_ID);
   radio.startListening();
-  matrix.setBrightness(7);
+  matrix.setBrightness(15);
   resetModule();
 
 }
@@ -135,6 +135,7 @@ void loop() {
         for(uint8_t button = 0; button < NB_COLORS; button++){
           if(buttons[button]->isLedOn() && buttons[button]->state() != PRESSED){
             shouldSend = false;
+            // to add a bad tone
           }
         }
       }
