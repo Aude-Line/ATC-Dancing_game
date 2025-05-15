@@ -11,6 +11,8 @@
 #define SOUND_FREQUENCY_BAD 100
 #define SOUND_FREQUENCY_NEUTRAL 600
 
+#define ShowSerial Serial
+
 enum Color{
     RED, 
     GREEN, 
