@@ -3,7 +3,7 @@
 Button::Button(uint8_t buttonPin, uint8_t ledPin, Adafruit_AW9523* aw)
   : buttonPin(buttonPin), ledPin(ledPin), aw(aw), ledAw9523(aw != nullptr) {
     init();
-  }
+}
 
 void Button::init() {
   pinMode(buttonPin, INPUT_PULLUP);

@@ -1,8 +1,7 @@
 #include "mp3.h"
 
-MP3Module::MP3Module()
-    : SSerial(new SoftwareSerial(MP3_RX_PIN, MP3_TX_PIN))
-{
+MP3Module::MP3Module(uint8_t rxPin, uint8_t txPin)
+    : SSerial(new SoftwareSerial(rxPin, txPin)){
     init();
 }
 

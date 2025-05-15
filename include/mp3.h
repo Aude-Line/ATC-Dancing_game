@@ -1,8 +1,6 @@
 #ifndef MP3_H
 #define MP3_H
 
-#include <master_pins.h>
-
 #include "WT2605C_Player.h"
 #include <SoftwareSerial.h>
 
@@ -10,7 +8,7 @@
 
 class MP3Module {
     public:
-        MP3Module();
+        MP3Module(uint8_t rxPin, uint8_t txPin);
         void setVolume(const uint8_t volume);
         void increaseVolume();
         void decreaseVolume();

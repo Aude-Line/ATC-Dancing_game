@@ -3,15 +3,14 @@
 #include <SPI.h>
 #include "printf.h"
 #include "RF24.h"
-#include <mp3.h>
-
 
 #include <master_pins.h>
 #include <util.h>
 #include <communication.h>
 #include <button.h>
+#include <mp3.h>
 
-// or the state, the modes should be just after the STOPGAME
+// the possible state of the master, the modes should be just after the STOPGAME
 enum State{SETUP, STOPGAME, GAMEMODE1, GAMEMODE2, GAMEMODE3};
 enum DifficultyLevel {EASY, MEDIUM, HARD};
 
@@ -54,10 +53,11 @@ RF24 radio(CE_PIN, CSN_PIN);
 unsigned long lastSendTime = 0;
 
 
-State actualState = STOPGAME; // Added a similar state as in slave to switch 
+State actualState = STOPGAME;
 Button* StartButton; // Defined the start and setup button and states
 Button* SetUpButton;
 MP3Module* mp3Module;
+
 PayloadFromSlaveStruct AllPayloadFromSlaves[NBR_SLAVES];
 uint8_t fromSlaveID[NBR_SLAVES];
 uint16_t scores[MAX_PLAYERS] = {0};
@@ -85,7 +85,7 @@ void setup() {
   SetUpButton = new Button (SETUP_BUTTON_PIN, SETUP_LED_PIN);
 
   //Initalize the mp3 player
-  mp3Module = new MP3Module();
+  mp3Module = new MP3Module(MP3_RX_PIN, MP3_TX_PIN);
 
   pinMode(POTENTIOMETER_MODE_PIN, INPUT);
   pinMode(POTENTIOMETER_DIFFICULTY_PIN, INPUT);
