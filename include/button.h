@@ -28,7 +28,7 @@ class Button {
       bool ledOn = false;
       ButtonState lastState = NOT_PRESSED;
       unsigned long lastDebounceTime = 0;
-      static const unsigned long DEBOUNCE_DELAY = 50; // ms
+      static const unsigned long DEBOUNCE_DELAY = 10; // ms
   };
 
   #endif
