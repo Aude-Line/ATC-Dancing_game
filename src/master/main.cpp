@@ -206,7 +206,7 @@ void loop() {
       
       
       currentMillis = millis();
-      if(currentMillis - previousMillis >= gamemode1Delay){
+      if((currentMillis - previousMillis) >= gamemode1Delay){
         // Send the command to the slaves
         receivers = assignButtons(players, modules, 2);
         sendCommand(CMD_BUTTONS, receivers);
@@ -244,7 +244,7 @@ void loop() {
       // Calculate the delay based on difficulty
       uint16_t currentDelay = difficultySettings[currentDifficulty].ledDelay[0] * speedModifier;
 
-      if (currentMillis - previousMillis >= currentDelay) {
+      if ((currentMillis - previousMillis) >= currentDelay) {
         receivers = assignButtons(players, modules, 1);
         sendCommand(CMD_BUTTONS, receivers);
 
@@ -283,7 +283,7 @@ void loop() {
     case GAMEMODE3:{
       long timeToPress = 2000; // 2 seconds
       currentMillis = millis();
-      if(currentMillis - previousMillis >= timeToPress){
+      if((currentMillis - previousMillis)>= timeToPress){
         // Send the command to the slaves
         receivers = assignButtons(players, modules, 2);
         sendCommand(CMD_BUTTONS, receivers);
