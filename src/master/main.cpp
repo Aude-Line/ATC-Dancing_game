@@ -129,7 +129,7 @@ void loop() {
       }
       // Set the game mode based on the potentiometer value to be able to do it easily without needing to reasign the modules
       //uint8_t gameMode = map(analogRead(POTENTIOMETER_MODE_PIN), 0, 1023, 1, 2);
-      uint8_t gameMode = 3;
+      uint8_t gameMode = 1;
       actualState = static_cast<State>(STOPGAME + gameMode);
       previousMillis = millis(); //reset the timer
 
