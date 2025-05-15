@@ -227,7 +227,6 @@ void loop() {
           Serial.println(" pressed the wrong button.");
         }
     
-        sendCommand(payloadFromMaster.command, receivers);
         waitingForResponse = false; // Ready for the next round
         Serial.println("Envoye les boutons");
         Serial.println("Actual State");
