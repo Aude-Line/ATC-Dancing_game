@@ -35,7 +35,7 @@ Button* buttons[4];
 
 GameState actualState = STOPGAME;
 uint16_t score = 0;
-Player idPlayer = NONE; // Pour l'instant à attribuer mieux après
+Player idPlayer = NONE;
 bool shouldSend = false;
 bool rightButtonsPressed = false;
 bool waitingForScore = false;
@@ -62,6 +62,7 @@ void setup() {
   buttons[YELLOW] = new Button(YELLOW_BUTTON_PIN, YELLOW_LED_PIN, &aw);
 
   pinMode(BUZZER_PIN, OUTPUT);
+  analogWrite(BUZZER_PIN, 3); // Set the buzzer to off
 
   Serial.print("address to send: ");
   print64Hex(addresses[1] + SLAVE_ID);
@@ -88,17 +89,16 @@ void setup() {
 void loop() {
   //Serial.println(F("\n==========LECTURE=========="));
   readFromMaster();
+
   //Serial.println(F("\n==========CHECK SON ETAT=========="));
-
-
   switch(actualState){
     case SETUP: {
       for(uint8_t button = 0; button < NB_COLORS; button++){
         if(buttons[button]->state() == JUST_PRESSED){
+          tone(BUZZER_PIN, SOUND_FREQUENCY_NEUTRAL, SOUND_DURATION_SHORT);
           if(buttons[button]->isLedOn()){
             buttons[button]->turnOffLed();
             idPlayer = NONE;
-            
           }else{
             turnOffLeds(); //éteindre les autres LEDS, peut être mieux optimisé
             buttons[button]->turnOnLed();
@@ -111,46 +111,40 @@ void loop() {
           Serial.println(idPlayer);
         }
       }
-      
+
       break;
     }
     case GAME: {
-      uint8_t nbrOfNotPressedButtons = 0;
-      bool atLeastOneButtonPressed = false;
-      Serial.println("Lighitn buttons");
-      readFromMaster();
+      rightButtonsPressed = true;
       for(uint8_t button = 0; button < NB_COLORS; button++){
-        if(buttons[button]->state() == JUST_PRESSED){ //un bouton a été appuyé
-          atLeastOneButtonPressed = true;
-          if(buttons[button]->isLedOn()){
-            rightButtonsPressed = true;
-            buttons[button]->turnOffLed();
-            Serial.print(F("Right button pressed: "));
-            Serial.println(button);
-            //tone(BUZZER_PIN, SOUND_FREQUENCY_GREAT, SOUND_DURATION_LONG);
-          
-          }else{ //un bouton qui ne devait pas être appuyé a été appuyé, envoit au master
-            rightButtonsPressed = false;
-            shouldSend = true;
-            Serial.print(F("Wrong button pressed: "));
-            Serial.println(button);
-            //tone(BUZZER_PIN, SOUND_FREQUENCY_BAD, SOUND_DURATION_LONG);
-
-          }
-        }else if(buttons[button]->isLedOn()){ //un bouton qui doit être appuyé n'a pas encore été appuyé
-          nbrOfNotPressedButtons++;
-          rightButtonsPressed = false;
+        if(buttons[button]->state() == JUST_PRESSED){ //à partir de maintenent, le nouvel à ce bouton dira PRESSED
+          Serial.print(F("New button pressed: "));
           shouldSend = true;
-
+          //check la led du nouveau bouton
+          if(buttons[button]->isLedOn()){
+            Serial.print(F("Right button: "));
+            rightButtonsPressed = true;
+          }else{
+            Serial.print(F("Wrong button: "));
+            rightButtonsPressed = false;
+          }
+          tone(BUZZER_PIN, SOUND_FREQUENCY_NEUTRAL, SOUND_DURATION_SHORT);
         }
       }
-      if(nbrOfNotPressedButtons == 0 and atLeastOneButtonPressed){ //tous les boutons qui devaient être appuyés ont été appuyés
-        shouldSend = true;
+      if(rightButtonsPressed){
+        //voir si il manque un bouton, si oui ne pas envoyer de message
+        for(uint8_t button = 0; button < NB_COLORS; button++){
+          if(buttons[button]->isLedOn() && buttons[button]->state() != PRESSED){
+            shouldSend = false;
+          }
+        }
       }
+
+      //TODO un message quand le bouton est relaché pour avoir les 2 joueurs qui doievent appuyé en même temps
+
       break;
     }
     case STOPGAME: {
-      //Serial.println(F("Game is stopped."));
       shouldSend = false;
       break;
     }
@@ -162,8 +156,7 @@ void loop() {
 
   //Serial.print(F("\n==========ENVOI SI BESOIN=========="));
   if(shouldSend){
-      //début com
-
+    //début com
     Serial.println(F("\n==NEW TRANSMISSION==\n BUTTONS PRESSED"));
     Serial.println(idPlayer);
 
@@ -175,11 +168,7 @@ void loop() {
 void turnOffLeds(){
   for (uint8_t button=0; button<NB_COLORS; ++button){
     buttons[button]->turnOffLed();
-static unsigned long gamemode1StartTime = 0;
-static unsigned long sentTime = 0;
-static uint16_t gamemode1Delay = 0;
-
-unsigned long currentMillis = millis();  }
+  }
 }
 
 void resetModule(){
@@ -217,6 +206,7 @@ void sendMessageToMaster(bool rightButtonsPressed, Player idPlayer){
 
 }
 
+// Function to read the payload from the master if there is one
 void readFromMaster(){
   if (radio.available()) {  
     PayloadFromMasterStruct payloadFromMaster;
@@ -229,17 +219,17 @@ void readFromMaster(){
 
     // Change mode based on the command received
     // Turn on/off LEDs based on the received command
-  
+    // Update the score based on the received command
     Serial.println("Payload from master:");
     Serial.println(payloadFromMaster.command);
 
     switch (payloadFromMaster.command){
-      case CMD_SETUP:
+      case CMD_SETUP:{
         actualState = SETUP;
-        //resetModule();
+        resetModule(); //POURQUOI il était enlevé?
         break;
-      case CMD_BUTTONS:
-        actualState = GAME;
+      }
+      case CMD_BUTTONS:{
         for (uint8_t button=0; button<NB_COLORS; ++button){
           if(payloadFromMaster.buttonsToPress & (1 << button)){
             buttons[button]->turnOnLed();
@@ -250,11 +240,10 @@ void readFromMaster(){
           waitingForScore = true;
         }
         break;
-      case CMD_SCORE: //si mauvais bouton ou pas de bouton appuyé, le master envoye SCORE_FAILED
-        actualState = GAME;
+      }
+      case CMD_SCORE:{ //si mauvais bouton ou pas de bouton appuyé, le master envoye SCORE_FAILED
         Serial.println("READING SCORE");
         if(payloadFromMaster.score == SCORE_FAILED){
-          turnOffLeds(); //éteindre les autres led si mauvais bouton appuyé
           Serial.println(F("Wrong button pressed"));
           tone(BUZZER_PIN, SOUND_FREQUENCY_BAD, SOUND_DURATION_LONG);
         }else if (payloadFromMaster.score == SCORE_SUCCESS){
@@ -263,24 +252,31 @@ void readFromMaster(){
           Serial.println(score);
           tone(BUZZER_PIN, SOUND_FREQUENCY_GREAT, SOUND_DURATION_LONG);
         }
+        turnOffLeds(); //éteindre les leds
         matrix.print(score);
         matrix.writeDisplay();
         waitingForScore = false;
         break;
-      case CMD_START_GAME: 
+      }
+      case CMD_START_GAME:{
         actualState = GAME;
         turnOffLeds();
+        score = 0;
+        matrix.print(score);
+        matrix.writeDisplay();
         Serial.println("Ready to start the game!");
-        break;
       case CMD_STOP_GAME:
         Serial.println("Stopping Game");
         actualState = STOPGAME;
+        turnOffLeds();
         break;
-      default: //CMD_STOP_GAME
+      }
+      default:{
         Serial.print("Je suis entré dans le default case...");
         actualState = STOPGAME;
         resetModule();
         break;
+      }
     }
   }
 }
