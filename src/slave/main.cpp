@@ -19,7 +19,7 @@
 enum GameState{STOPGAME, SETUP, GAME}; // Added different game modes as states
 
 void resetModule();
-void sendMessageToMaster(bool buttonsPressed, Player playerId);
+bool sendMessageToMaster(bool buttonsPressed, Player playerId);
 void readFromMaster();
 void turnOffLeds();
 
@@ -73,7 +73,7 @@ void setup() {
     while (1) delay(10);  // halt forever
   }
   radio.setChannel(125);
-  radio.setPALevel(RF24_PA_LOW);
+  radio.setPALevel(RF24_PA_HIGH);
   radio.setRetries(5, 15);
   radio.setAutoAck(true);
   radio.enableDynamicPayloads(); //as we have different payload size
@@ -86,10 +86,8 @@ void setup() {
 }
 
 void loop() {
-  //Serial.println(F("\n==========LECTURE=========="));
   readFromMaster();
 
-  //Serial.println(F("\n==========CHECK SON ETAT=========="));
   switch(actualState){
     case SETUP: {
       for(uint8_t button = 0; button < NB_COLORS; button++){
@@ -99,9 +97,9 @@ void loop() {
             buttons[button]->turnOffLed();
             idPlayer = NONE;
           }else{
-            turnOffLeds(); //éteindre les autres LEDS, peut être mieux optimisé
+            turnOffLeds();
             buttons[button]->turnOnLed();
-            idPlayer = (Player)button; //idPlayer = button
+            idPlayer = (Player)button;
             Serial.print(F(" Setting ID player: "));
             Serial.println(idPlayer);
           }
@@ -110,19 +108,19 @@ void loop() {
           Serial.println(idPlayer);
         }
       }
-
       break;
     }
     case GAME: {
       rightButtonsPressed = true;
+      ButtonState buttonStates[NB_COLORS];
       for(uint8_t button = 0; button < NB_COLORS; button++){
-        if(buttons[button]->state() == JUST_PRESSED){ //à partir de maintenent, le nouvel à ce bouton dira PRESSED
+        buttonStates[button] = buttons[button]->state();
+        if(buttonStates[button] == JUST_PRESSED){
           Serial.print(F("New button pressed: "));
           shouldSend = true;
-          //check la led du nouveau bouton
           if(buttons[button]->isLedOn()){
             Serial.print(F("Right button: "));
-            rightButtonsPressed = true;
+            // rightButtonsPressed reste true
           }else{
             Serial.print(F("Wrong button: "));
             rightButtonsPressed = false;
@@ -131,17 +129,15 @@ void loop() {
         }
       }
       if(rightButtonsPressed){
-        //voir si il manque un bouton, si oui ne pas envoyer de message
         for(uint8_t button = 0; button < NB_COLORS; button++){
-          if(buttons[button]->isLedOn() && buttons[button]->state() != PRESSED){
-            shouldSend = false;
-            // to add a bad tone
+          if(buttons[button]->isLedOn()){
+            if(buttonStates[button] == NOT_PRESSED || buttonStates[button] == JUST_RELEASED){
+              shouldSend = false;
+              //un bouton qui devait être appuyé ne l'est pas
+            }
           }
         }
       }
-
-      //TODO un message quand le bouton est relaché pour avoir les 2 joueurs qui doievent appuyé en même temps
-
       break;
     }
     case STOPGAME: {
@@ -154,14 +150,18 @@ void loop() {
     }
   }
 
-  //Serial.print(F("\n==========ENVOI SI BESOIN=========="));
   if(shouldSend){
-    //début com
     Serial.println(F("\n==NEW TRANSMISSION==\n BUTTONS PRESSED"));
     Serial.println(idPlayer);
 
-    sendMessageToMaster(rightButtonsPressed,idPlayer);
-    shouldSend = false;
+    bool communicationSuccess = sendMessageToMaster(rightButtonsPressed,idPlayer);
+    if(communicationSuccess){
+      Serial.println(F("✅ Transmission successful"));
+      shouldSend = false;
+    }else{
+      Serial.println(F("❌ Transmission failed"));
+      shouldSend = true;
+    }
   }
 }
 
@@ -178,7 +178,7 @@ void resetModule(){
   score = 0;
 }
 
-void sendMessageToMaster(bool rightButtonsPressed, Player idPlayer){
+bool sendMessageToMaster(bool rightButtonsPressed, Player idPlayer){
   PayloadFromSlaveStruct payloadFromSlave;
   payloadFromSlave.slaveId = SLAVE_ID;
   Serial.println("dans la function player ID:");
@@ -200,8 +200,10 @@ void sendMessageToMaster(bool rightButtonsPressed, Player idPlayer){
     Serial.print(F("✅ Transmission successful in "));
     Serial.print(end_timer - start_timer);
     Serial.println(F(" µs"));
+    return true;
   } else {
     Serial.println(F("❌ Transmission failed"));
+    return false;
   }
 
 }

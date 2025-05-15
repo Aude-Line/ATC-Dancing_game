@@ -12,7 +12,9 @@
 
 // the possible state of the master, the modes should be just after the STOPGAME
 enum State{SETUP, STOPGAME, GAMEMODE1, GAMEMODE2, GAMEMODE3};
-enum DifficultyLevel {EASY, MEDIUM, HARD};
+
+//TODO remove this
+enum DifficultyLevel {EASY, MEDIUM, HARD}; //The difficulty level of the different gamemodes
 
 struct PlayerStruct{
   uint8_t modules; //mask
@@ -26,21 +28,6 @@ struct ModuleStruct{
 PlayerStruct players[MAX_PLAYERS];
 ModuleStruct modules[NBR_SLAVES];
 
-struct Difficulty {
-  uint16_t ledDelay[2]; // Delay for LED
-  uint16_t pressTime;   // Time allowed to press the button
-  float speedFactor; // Factor to change speed based on difficulty
-};
-
-Difficulty difficultySettings[] {
-  {{7000, 8000}, 3000, 0.1}, // MEDIUM
-  {{6000, 7000}, 5000, 0.05}, // EASY
-  {{4000, 5000}, 3000, 0.1}, // MEDIUM
-  {{3000, 4000}, 1000, 0.2}, // HARD
-  {{2000, 3000}, 5000, 0.05}, // EASY
-  {{1000, 2000}, 1000, 0.2} // HARD
-};
-
 void initPlayers(PlayerStruct* players, ModuleStruct* modules);
 void sendCommand(MasterCommand command, uint8_t receivers);
 void sendScore(uint8_t playerId, uint16_t score);
@@ -52,21 +39,40 @@ void assignModules(PlayerStruct* players, ModuleStruct* modules, PayloadFromSlav
 RF24 radio(CE_PIN, CSN_PIN);
 unsigned long lastSendTime = 0;
 
-
 State actualState = STOPGAME;
 Button* StartButton; // Defined the start and setup button and states
 Button* SetUpButton;
 MP3Module* mp3Module;
 
-PayloadFromSlaveStruct AllPayloadFromSlaves[NBR_SLAVES];
-uint8_t fromSlaveID[NBR_SLAVES];
-uint16_t scores[MAX_PLAYERS] = {0};
-uint8_t receivers;
 PayloadFromSlaveStruct payloadFromSlave;
+PayloadFromSlaveStruct AllPayloadFromSlaves[NBR_SLAVES];
+uint8_t receivers;
 
-bool gamemode1CommandSent = false;
-bool waitingForResponse = false;
 bool assignedPlayers = false;
+
+//TODO remove this
+struct Difficulty {
+  uint16_t ledDelay[2]; // Delay for LED
+  uint16_t pressTime;   // Time allowed to press the button
+  float speedFactor; // Factor to change speed based on difficulty
+};
+//TODO remove this
+Difficulty difficultySettings[] {
+  {{7000, 8000}, 3000, 0.1}, // MEDIUM
+  {{6000, 7000}, 5000, 0.05}, // EASY
+  {{4000, 5000}, 3000, 0.1}, // MEDIUM
+  {{3000, 4000}, 1000, 0.2}, // HARD
+  {{2000, 3000}, 5000, 0.05}, // EASY
+  {{1000, 2000}, 1000, 0.2} // HARD
+};
+//TODO remove this
+uint8_t difficultyIndex = 0; // The difficulty level of the game (dependent of the mode)
+DifficultyLevel currentDifficulty = static_cast<DifficultyLevel>(difficultyIndex); // The difficulty level of the game (dependent of the mode)
+
+//TODO use this
+uint64_t normalWait = 500; // The normal speed of the game (min 0.5 second)
+uint64_t actualWaitTime = 2000; // 2 seconds
+//uint32_t DifficultyLevel = 0; // The difficulty level of the game (dependent of the mode)
 
 unsigned long currentMillis = millis();
 unsigned long previousMillis = currentMillis;
@@ -87,11 +93,12 @@ void setup() {
   //Initalize the mp3 player
   mp3Module = new MP3Module(MP3_RX_PIN, MP3_TX_PIN);
 
+  //Initialize the potentiometers
   pinMode(POTENTIOMETER_MODE_PIN, INPUT);
   pinMode(POTENTIOMETER_DIFFICULTY_PIN, INPUT);
 
   radio.setChannel(125);
-  radio.setPALevel(RF24_PA_LOW);
+  radio.setPALevel(RF24_PA_HIGH);
   radio.setRetries(5, 15);
   radio.setAutoAck(true);
   radio.enableDynamicPayloads(); //as we have different payload size
@@ -124,24 +131,37 @@ void loop() {
       if(actualState == SETUP){
         Serial.println( "Start Pressed when in setup mode! Assigning modules");
         assignModules(players, modules, AllPayloadFromSlaves);
-        assignedPlayers = true;
       }
-      // Set the game mode based on the potentiometer value to be able to do it easily without needing to reasign the modules
-      //uint8_t gameMode = map(analogRead(POTENTIOMETER_MODE_PIN), 0, 1023, 1, 3);
-      uint8_t gameMode = 3;
-      Serial.println("We are in mode:");
-      Serial.println(gameMode);
-      actualState = static_cast<State>(STOPGAME + gameMode);
-      previousMillis = millis(); //reset the timer
+      
+      bool assignedPlayers = false;
+      for(uint8_t module = 0; module < NBR_SLAVES; ++module){
+        if(modules[module].playerOfModule != NONE){
+          assignedPlayers = true;
+          Serial.print("Au moins un joueur dans le jeu");
+        }
+      }
+      if(!assignedPlayers){
+        Serial.println("Pick a player first!!!");
+        actualState = STOPGAME;
+        receivers = (1 << NBR_SLAVES)-1; // Setting 1 to all slaves
+        sendCommand(CMD_STOP_GAME,receivers); // Telling all the slaves to enter game mode
+      }else{
+        // Set the game mode based on the potentiometer value to be able to do it easily without needing to reasign the modules
+        //uint8_t gameMode = map(analogRead(POTENTIOMETER_MODE_PIN), 0, 1023, 1, 3);
+        uint8_t gameMode = 1; // For testing purposes
+        Serial.println("We are in mode:");
+        Serial.println(gameMode);
+        actualState = static_cast<State>(STOPGAME + gameMode);
+        previousMillis = millis(); //reset the timer
 
-      if(assignedPlayers){
-        //envoi à tout les slaves d'éteindre leurs leds, reset le score et se mette en mode game
-        uint8_t receivers = (1 << NBR_SLAVES)-1; // Setting 1 to all slaves
+        // Determine current difficulty level based on potentiometer input
+        //TODO ajuster
+        difficultyIndex = map(analogRead(POTENTIOMETER_DIFFICULTY_PIN), 0, 1023, 0, 5);
+        currentDifficulty = static_cast<DifficultyLevel>(difficultyIndex);
+        Serial.println("Difficulty level chosen:");
+        Serial.println(currentDifficulty);
+        receivers = (1 << NBR_SLAVES)-1; // Setting 1 to all slaves
         sendCommand(CMD_START_GAME,receivers); // Telling all the slaves to enter game mode
-        Serial.println ("Start command sent. Waiting for players...");
-      } else {
-        Serial.println("Pick a player first!");
-        // To implement sound feeedback
       }
       break;
     }
@@ -189,28 +209,19 @@ void loop() {
     }
     case STOPGAME: {
       // If the game is stopped, we wait, the signal was already send to the modules
-      assignedPlayers = false; // Do we want it like this?
       break;
     }
-    case GAMEMODE1: {
-
-
-      // Determine current difficulty level based on potentiometer input
-      uint8_t difficultyIndex = map(analogRead(POTENTIOMETER_DIFFICULTY_PIN), 0, 1023, 0, 5);
-      DifficultyLevel currentDifficulty = static_cast<DifficultyLevel>(difficultyIndex);
-      Serial.println("Difficulty level chosen:");
-      Serial.println(currentDifficulty);
-      long gamemode1Delay = random(
-          difficultySettings[currentDifficulty].ledDelay[0],
-          difficultySettings[currentDifficulty].ledDelay[1] + 1);
-      
-      
+    case GAMEMODE1: { //1 bouton à appuyer par joueur
       currentMillis = millis();
-      if((currentMillis - previousMillis) >= gamemode1Delay){
+      if((currentMillis - previousMillis) >= actualWaitTime){
         // Send the command to the slaves
         receivers = assignButtons(players, modules, 2);
         sendCommand(CMD_BUTTONS, receivers);
         previousMillis = currentMillis;
+        actualWaitTime = random(
+          difficultySettings[currentDifficulty].ledDelay[0],
+          difficultySettings[currentDifficulty].ledDelay[1] + 1);
+
       }else if(newPayloadReceived){
         // Read the payload from the slaves
         if(payloadFromSlave.rightButtonsPressed) {
@@ -225,7 +236,6 @@ void loop() {
           Serial.println(" pressed the wrong button.");
         }
       }
-
       break;}
 
     case GAMEMODE2: {
