@@ -38,6 +38,7 @@ uint16_t score = 0;
 Player idPlayer = NONE;
 bool shouldSend = false;
 bool rightButtonsPressed = false;
+bool waitingForScore = false;
 
 void setup() {
   Serial.begin(9600);
@@ -236,6 +237,7 @@ void readFromMaster(){
           }else{
             buttons[button]->turnOffLed();
           }
+          waitingForScore = true;
         }
         break;
       }
@@ -253,6 +255,7 @@ void readFromMaster(){
         turnOffLeds(); //éteindre les leds
         matrix.print(score);
         matrix.writeDisplay();
+        waitingForScore = false;
         break;
       }
       case CMD_START_GAME:{
@@ -262,9 +265,7 @@ void readFromMaster(){
         matrix.print(score);
         matrix.writeDisplay();
         Serial.println("Ready to start the game!");
-        break;
-      }
-      case CMD_STOP_GAME:{ //continue d'afficher le score
+      case CMD_STOP_GAME:
         Serial.println("Stopping Game");
         actualState = STOPGAME;
         turnOffLeds();
