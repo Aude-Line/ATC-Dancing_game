@@ -12,4 +12,7 @@
 #define POTENTIOMETER_MODE_PIN A0
 #define POTENTIOMETER_DIFFICULTY_PIN A1
 
+#define MP3_RX_PIN 3
+#define MP3_TX_PIN 2
+
 #endif
