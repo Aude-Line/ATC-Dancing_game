@@ -58,18 +58,34 @@ void setup() {
   while (!Serial) {
     ; // wait for serial port to connect. Needed for native USB, on LEONARDO, MICRO, YUN, and other 32u4 based boards.
   }
-  Serial.print("Je suis le slave ID : ");
-  Serial.println(SLAVE_ID);
+
+  // Crée des mutex (sémaphores binaires) pour Serial et Radio
+  if ( xSerialSemaphore == NULL ){  // Check to confirm that the Serial Semaphore has not already been created.
+    xSerialSemaphore = xSemaphoreCreateMutex();  // Create a mutex semaphore we will use to manage the Serial Port
+    if ( ( xSerialSemaphore ) != NULL )
+      xSemaphoreGive( ( xSerialSemaphore ) );  // Make the Serial Port available for use, by "Giving" the Semaphore.
+  }
+  if ( xRadioSemaphore == NULL ){  // Check to confirm that the Radio Semaphore has not already been created.
+    xRadioSemaphore = xSemaphoreCreateMutex();  // Create a mutex semaphore we will use to manage the Radio
+    if ( ( xRadioSemaphore ) != NULL )
+      xSemaphoreGive( ( xRadioSemaphore ) );  // Make the Radio available for use, by "Giving" the Semaphore.
+  }
 
   //Connect to to the aw GPIO expander
   if (!aw.begin(0x58)) {
-    Serial.println("AW9523 not found? Check wiring!");
+    if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
+      Serial.println("AW9523 not found? Check wiring!");
+      xSemaphoreGive(xSerialSemaphore);
+    }
     while (1) delay(10);  // halt forever
   }
 
   //Connect to the 7 segment display
   if (!matrix.begin(0x70)) {
-    Serial.println("7 digit display not found? Check wiring!");
+    if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
+      Serial.println("7 digit display not found? Check wiring!");
+      xSemaphoreGive(xSerialSemaphore);
+    }
     while (1) delay(10);  // halt forever
   }
   matrix.setBrightness(15);
@@ -89,7 +105,10 @@ void setup() {
   print64Hex(addresses[0] + SLAVE_ID);
   // initialize the transceiver on the SPI bus
   if (!radio.begin()) {
-    Serial.println(F("radio hardware is not responding!!"));
+    if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
+      Serial.println(F("radio hardware is not responding!!"));
+      xSemaphoreGive(xSerialSemaphore);
+    }
     while (1) delay(10);  // halt forever
   }
   radio.setChannel(125);
@@ -101,25 +120,32 @@ void setup() {
   radio.openReadingPipe(1, addresses[0]+SLAVE_ID);
   radio.startListening(); // Always in listening mode (except when sending
 
-   // Crée des mutex (sémaphores binaires) pour Serial et Radio
-  if ( xSerialSemaphore == NULL ){  // Check to confirm that the Serial Semaphore has not already been created.
-    xSerialSemaphore = xSemaphoreCreateMutex();  // Create a mutex semaphore we will use to manage the Serial Port
-    if ( ( xSerialSemaphore ) != NULL )
-      xSemaphoreGive( ( xSerialSemaphore ) );  // Make the Serial Port available for use, by "Giving" the Semaphore.
-  }
-  if ( xRadioSemaphore == NULL ){  // Check to confirm that the Radio Semaphore has not already been created.
-    xRadioSemaphore = xSemaphoreCreateMutex();  // Create a mutex semaphore we will use to manage the Radio
-    if ( ( xRadioSemaphore ) != NULL )
-      xSemaphoreGive( ( xRadioSemaphore ) );  // Make the Radio available for use, by "Giving" the Semaphore.
-  }
-
   // Create the tasks
   // The tasks are created in the setup function, and they will run in parallel
-  xTaskCreate(TaskReadFromMaster, "TaskReadFromMaster", 256, NULL, 1, NULL);
-  xTaskCreate(TaskHandleButtons, "TaskHandleButtons", 256, NULL, 2, NULL);
+  if (xTaskCreate(TaskReadFromMaster, "TaskReadFromMaster", 80, NULL, 1, NULL) != pdPASS) {
+    if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
+      Serial.println("Erreur : création tâche échouée !");
+      xSemaphoreGive(xSerialSemaphore);
+    }
+  }
+  
+  if (xTaskCreate(TaskHandleButtons, "TaskHandleButtons", 80, NULL, 2, NULL) != pdPASS) {
+    if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
+      Serial.println("Erreur : création tâche échouée !");
+      xSemaphoreGive(xSerialSemaphore);
+    }
+  }
 
   // Start with a clean module
   resetModule();
+
+  if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
+    Serial.print("Je suis le slave ID : ");
+    Serial.println(SLAVE_ID);
+    xSemaphoreGive(xSerialSemaphore);
+  }
+
+  vTaskStartScheduler();
 }
 
 void loop() {
@@ -132,26 +158,54 @@ void loop() {
 
 void TaskReadFromMaster(void *pvParameters) {
   (void) pvParameters; // suppress unused parameter warning
+  if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
+    Serial.println("Tache lecture lancée");
+    xSemaphoreGive(xSerialSemaphore);
+  }
+
   PayloadFromMasterStruct payload;
+  //DEBUG savoir combien j'utilise de stack
+  UBaseType_t watermark = uxTaskGetStackHighWaterMark(NULL);
+  if (xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {
+    Serial.print("Stack remaining (TaskReadFromMaster): ");
+    Serial.println(watermark);
+    xSemaphoreGive(xSerialSemaphore);
+  }
+
   for (;;) {
+    if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
+      Serial.println("Boucle lecture master");
+      xSemaphoreGive(xSerialSemaphore);
+    }
     if (getPayloadFromMaster(payload)) {
       handlePayloadFromMaster(payload);
     }
-    vTaskDelay(10 / portTICK_PERIOD_MS);
+    vTaskDelay(500 / portTICK_PERIOD_MS);
+  }
+
+}
+
+void TaskHandleButtons(void *pvParameters) {
+  (void) pvParameters; // suppress unused parameter warning
+  if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
+    Serial.println("Tache boutons lancée");
+    xSemaphoreGive(xSerialSemaphore);
   }
 
   //DEBUG savoir combien j'utilise de stack
   UBaseType_t watermark = uxTaskGetStackHighWaterMark(NULL);
   if (xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {
-    Serial.print("Stack remaining (TaskReadFromMasterButtons): ");
+    Serial.print("Stack remaining (TaskHandleButtons): ");
     Serial.println(watermark);
     xSemaphoreGive(xSerialSemaphore);
   }
-}
 
-void TaskHandleButtons(void *pvParameters) {
-  (void) pvParameters; // suppress unused parameter warning
   for (;;) {
+    if (xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {
+      Serial.print("Iteration tache boutons");
+      xSemaphoreGive(xSerialSemaphore);
+    }
+
     // update the state of the buttons
     for (uint8_t button = 0; button < NB_COLORS; ++button) {
       buttons[button]->updateState();
@@ -174,15 +228,7 @@ void TaskHandleButtons(void *pvParameters) {
         break;
       }
     }
-    vTaskDelay(10 / portTICK_PERIOD_MS);
-  }
-
-  //DEBUG savoir combien j'utilise de stack
-  UBaseType_t watermark = uxTaskGetStackHighWaterMark(NULL);
-  if (xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {
-    Serial.print("Stack remaining (TaskHandleButtons): ");
-    Serial.println(watermark);
-    xSemaphoreGive(xSerialSemaphore);
+    vTaskDelay(500 / portTICK_PERIOD_MS);
   }
 }
 
