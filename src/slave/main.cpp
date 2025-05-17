@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <Arduino_FreeRTOS.h>
 #include <semphr.h>  // add the FreeRTOS functions for Semaphores (or Flags).
+#include <task.h>    // add the FreeRTOS functions for Tasks
 #include <Adafruit_AW9523.h>
 #include <SPI.h>
 #include "printf.h"
@@ -74,19 +75,17 @@ void setup() {
   //Connect to to the aw GPIO expander
   if (!aw.begin(0x58)) {
     if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
-      Serial.println("AW9523 not found? Check wiring!");
+      Serial.println(F("AW9523 not found? Check wiring!"));
       xSemaphoreGive(xSerialSemaphore);
     }
-    while (1) delay(10);  // halt forever
   }
 
   //Connect to the 7 segment display
   if (!matrix.begin(0x70)) {
     if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
-      Serial.println("7 digit display not found? Check wiring!");
+      Serial.println(F("7 digit display not found? Check wiring!"));
       xSemaphoreGive(xSerialSemaphore);
     }
-    while (1) delay(10);  // halt forever
   }
   matrix.setBrightness(15);
 
@@ -99,9 +98,9 @@ void setup() {
   analogWrite(BUZZER_PIN, 3); // Set the buzzer to low volume
 
   // Initialize the radio
-  Serial.print("address to send: ");
+  Serial.print(F("address to send: "));
   print64Hex(addresses[1] + SLAVE_ID);
-  Serial.print("address to receive: ");
+  Serial.print(F("address to receive: "));
   print64Hex(addresses[0] + SLAVE_ID);
   // initialize the transceiver on the SPI bus
   if (!radio.begin()) {
@@ -109,7 +108,6 @@ void setup() {
       Serial.println(F("radio hardware is not responding!!"));
       xSemaphoreGive(xSerialSemaphore);
     }
-    while (1) delay(10);  // halt forever
   }
   radio.setChannel(125);
   radio.setPALevel(RF24_PA_HIGH);
@@ -122,16 +120,16 @@ void setup() {
 
   // Create the tasks
   // The tasks are created in the setup function, and they will run in parallel
-  if (xTaskCreate(TaskReadFromMaster, "TaskReadFromMaster", 80, NULL, 1, NULL) != pdPASS) {
+  if (xTaskCreate(TaskReadFromMaster, "TaskReadFromMaster", 100, NULL, 2, NULL) != pdPASS) {
     if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
-      Serial.println("Erreur : création tâche échouée !");
+      Serial.println(F("Erreur : création tâche échouée !"));
       xSemaphoreGive(xSerialSemaphore);
     }
   }
   
-  if (xTaskCreate(TaskHandleButtons, "TaskHandleButtons", 80, NULL, 2, NULL) != pdPASS) {
+  if (xTaskCreate(TaskHandleButtons, "TaskHandleButtons", 100, NULL, 1, NULL) != pdPASS) {
     if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
-      Serial.println("Erreur : création tâche échouée !");
+      Serial.println(F("Erreur : création tâche échouée !"));
       xSemaphoreGive(xSerialSemaphore);
     }
   }
@@ -140,7 +138,7 @@ void setup() {
   resetModule();
 
   if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
-    Serial.print("Je suis le slave ID : ");
+    Serial.print(F("Je suis le slave ID : "));
     Serial.println(SLAVE_ID);
     xSemaphoreGive(xSerialSemaphore);
   }
@@ -159,7 +157,7 @@ void loop() {
 void TaskReadFromMaster(void *pvParameters) {
   (void) pvParameters; // suppress unused parameter warning
   if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
-    Serial.println("Tache lecture lancée");
+    Serial.println(F("Tache lecture lancée"));
     xSemaphoreGive(xSerialSemaphore);
   }
 
@@ -167,16 +165,12 @@ void TaskReadFromMaster(void *pvParameters) {
   //DEBUG savoir combien j'utilise de stack
   UBaseType_t watermark = uxTaskGetStackHighWaterMark(NULL);
   if (xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {
-    Serial.print("Stack remaining (TaskReadFromMaster): ");
+    Serial.print(F("Stack remaining (TaskReadFromMaster): "));
     Serial.println(watermark);
     xSemaphoreGive(xSerialSemaphore);
   }
 
   for (;;) {
-    if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
-      Serial.println("Boucle lecture master");
-      xSemaphoreGive(xSerialSemaphore);
-    }
     if (getPayloadFromMaster(payload)) {
       handlePayloadFromMaster(payload);
     }
@@ -188,24 +182,19 @@ void TaskReadFromMaster(void *pvParameters) {
 void TaskHandleButtons(void *pvParameters) {
   (void) pvParameters; // suppress unused parameter warning
   if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
-    Serial.println("Tache boutons lancée");
+    Serial.println(F("Tache boutons lancée"));
     xSemaphoreGive(xSerialSemaphore);
   }
 
   //DEBUG savoir combien j'utilise de stack
   UBaseType_t watermark = uxTaskGetStackHighWaterMark(NULL);
   if (xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {
-    Serial.print("Stack remaining (TaskHandleButtons): ");
+    Serial.print(F("Stack remaining (TaskHandleButtons): "));
     Serial.println(watermark);
     xSemaphoreGive(xSerialSemaphore);
   }
 
   for (;;) {
-    if (xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {
-      Serial.print("Iteration tache boutons");
-      xSemaphoreGive(xSerialSemaphore);
-    }
-
     // update the state of the buttons
     for (uint8_t button = 0; button < NB_COLORS; ++button) {
       buttons[button]->updateState();
@@ -244,7 +233,7 @@ void turnOffLeds(){
 
 void resetModule(){
   if (xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
-    Serial.println("===================Reset module===================");
+    Serial.println(F("===================Reset module==================="));
     xSemaphoreGive(xSerialSemaphore);
   }
   turnOffLeds();
@@ -305,7 +294,7 @@ void handlePayloadFromMaster(const PayloadFromMasterStruct& payloadFromMaster) {
   if (xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
     Serial.println(F("\n==NEW RECEPTION=="));
     printPayloadFromMasterStruct(payloadFromMaster);
-    Serial.println("Payload from master:");
+    Serial.println(F("Payload from master:"));
     Serial.println(payloadFromMaster.command);
     xSemaphoreGive(xSerialSemaphore);
   }
