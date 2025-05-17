@@ -15,26 +15,21 @@ void Button::init() {
     digitalWrite(ledPin, LOW);          // LED éteinte (active HIGH)
   }
   ledOn = false;
-  lastState = NOT_PRESSED; // état initial du bouton (non appuyé)
+  lastState = static_cast<ButtonState>(digitalRead(buttonPin)); // état initial du bouton
+  currentState = lastState;
 }
 
-ButtonState Button::state(){ // detection uniquement d'une falling edge
+void Button::updateState(){
+  lastState = static_cast<ButtonState>(currentState%2); // to get only PRESSED or NOT_PRESSED
   ButtonState reading = static_cast<ButtonState>(digitalRead(buttonPin));
 
-  if (reading == lastState) {
-    lastDebounceTime = millis(); // reset du timer
+  if(lastState == NOT_PRESSED && reading == PRESSED){
+    currentState = JUST_PRESSED;
+  }else if(lastState == PRESSED && reading == NOT_PRESSED){
+    currentState = JUST_RELEASED;
+  }else{
+    currentState = reading;
   }
-
-  if ((millis() - lastDebounceTime) > DEBOUNCE_DELAY) {
-    if (lastState == NOT_PRESSED && reading == PRESSED) {
-      lastState = PRESSED;
-      return JUST_PRESSED; // bouton appuyé
-    } else if (lastState == PRESSED && reading == NOT_PRESSED) {
-      lastState = NOT_PRESSED;
-      return JUST_RELEASED; // bouton relâché
-    }
-  }
-  return lastState;
 }
 
 void Button::toggleLed(){

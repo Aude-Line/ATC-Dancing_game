@@ -4,16 +4,21 @@
 #include <Arduino.h>
 #include <Adafruit_AW9523.h>
 
-enum ButtonState {PRESSED, NOT_PRESSED, JUST_PRESSED, JUST_RELEASED};
+enum ButtonState {
+  PRESSED = 0,       // LOW
+  NOT_PRESSED = 1,    // HIGH
+  JUST_PRESSED = 2,
+  JUST_RELEASED = 3
+};
 
-//si isPressed et isLED on -> étindre la led car il devait ^tre appuyé dans le jeu
-//pour setup : is isPressed et isLedOn = false -> alumer la LED et envoi message
 class Button {
     public:
       Button(uint8_t buttonPin, uint8_t ledPin, Adafruit_AW9523* aw = nullptr);
   
       void init();
-      ButtonState state(); //Detection uniquement d'une falling edge
+      void updateState(); //Update the state of the button
+      ButtonState getState() const {return currentState;} //Get the current state of the button, updateState needs to be called before to have the right state
+
       bool isLedOn() const { return ledOn; }
       void toggleLed();
       void turnOnLed();
@@ -27,8 +32,7 @@ class Button {
       bool ledAw9523;         // true si aw != nullptr
       bool ledOn = false;
       ButtonState lastState = NOT_PRESSED;
-      unsigned long lastDebounceTime = 0;
-      static const unsigned long DEBOUNCE_DELAY = 10; // ms
+      ButtonState currentState = NOT_PRESSED;
   };
 
   #endif

@@ -20,9 +20,9 @@ struct PayloadFromMasterStruct{
   uint16_t score;
 };
 struct PayloadFromSlaveStruct{
-  uint8_t slaveId; //id du slave qui envoie le message
-  Player playerId; //needed for setup and adjustment
-  bool rightButtonsPressed; //en mode le/les bons boutons qui devaient être appuyés ont tous été appuyés
+  uint8_t slaveId = 0; //id du slave qui envoie le message
+  Player playerId = NONE; //needed for setup and adjustment
+  bool rightButtonsPressed = false; //en mode le/les bons boutons qui devaient être appuyés ont tous été appuyés
 };
 
 void print64Hex(uint64_t val);
