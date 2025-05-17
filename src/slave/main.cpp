@@ -19,6 +19,9 @@
 #define SLAVE_ID -1
 #endif
 
+#define PERIOD_BUTTON 100 // 100ms
+#define PERIOD_COMM 100 // 100ms
+
 enum GameState{STOPGAME, SETUP, GAME}; // Added different game modes as states
 
 void turnOffLeds();
@@ -120,14 +123,14 @@ void setup() {
 
   // Create the tasks
   // The tasks are created in the setup function, and they will run in parallel
-  if (xTaskCreate(TaskReadFromMaster, "TaskReadFromMaster", 100, NULL, 2, NULL) != pdPASS) {
+  if (xTaskCreate(TaskReadFromMaster, "TaskReadFromMaster", 128, NULL, 2, NULL) != pdPASS) {
     if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
       Serial.println(F("Erreur : création tâche échouée !"));
       xSemaphoreGive(xSerialSemaphore);
     }
   }
   
-  if (xTaskCreate(TaskHandleButtons, "TaskHandleButtons", 100, NULL, 1, NULL) != pdPASS) {
+  if (xTaskCreate(TaskHandleButtons, "TaskHandleButtons", 128, NULL, 1, NULL) != pdPASS) {
     if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
       Serial.println(F("Erreur : création tâche échouée !"));
       xSemaphoreGive(xSerialSemaphore);
@@ -174,7 +177,7 @@ void TaskReadFromMaster(void *pvParameters) {
     if (getPayloadFromMaster(payload)) {
       handlePayloadFromMaster(payload);
     }
-    vTaskDelay(500 / portTICK_PERIOD_MS);
+    vTaskDelay(PERIOD_COMM / portTICK_PERIOD_MS);
   }
 
 }
@@ -217,7 +220,7 @@ void TaskHandleButtons(void *pvParameters) {
         break;
       }
     }
-    vTaskDelay(500 / portTICK_PERIOD_MS);
+    vTaskDelay(PERIOD_BUTTON / portTICK_PERIOD_MS);
   }
 }
 
