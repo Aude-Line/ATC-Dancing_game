@@ -213,9 +213,10 @@ void loop() {
     }
     case GAMEMODE1: { //1 bouton à appuyer par joueur
       currentMillis = millis();
+      actualWaitTime = 3000;
       if((currentMillis - previousMillis) >= actualWaitTime){
         // Send the command to the slaves
-        receivers = assignButtons(players, modules, 2);
+        receivers = assignButtons(players, modules, 1);
         sendCommand(CMD_BUTTONS, receivers);
         previousMillis = currentMillis;
         actualWaitTime = random(
