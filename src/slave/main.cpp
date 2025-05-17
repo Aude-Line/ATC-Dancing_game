@@ -182,6 +182,7 @@ void TaskReadFromMaster(void *pvParameters) {
 
 }
 
+//this function will also send messages to the master
 void TaskHandleButtons(void *pvParameters) {
   (void) pvParameters; // suppress unused parameter warning
   if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
