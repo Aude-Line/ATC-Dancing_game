@@ -580,4 +580,52 @@ void handlePayloadFromSlave(const PayloadFromSlaveStruct& payload) {
   }
 }
 
- 
+void addRandomColor(uint8_t& existingColors) {
+  // Compter combien de couleurs sont déjà utilisées
+  uint8_t count = 0;
+  for (uint8_t i = 0; i < NB_COLORS; i++) {
+    if (existingColors & (1 << i)) {
+        count++;
+    }
+  }
+  // Si toutes les couleurs sont déjà utilisées, ne rien faire
+  if (count >= NB_COLORS) return;
+
+  // Boucle jusqu'à trouver une couleur pas encore utilisée
+  while (true) {
+    uint8_t randColor = random(0, NB_COLORS);
+    if ((existingColors & (1 << randColor)) == 0) {
+        existingColors |= (1 << randColor);
+        break;
+    }
+  }
+}
+
+//Faire une fonction qui choisi aléatoirement un module d'un masque
+
+void assignColorsToPlayer(uint8_t nbColors, bool fixedColors = true) {
+  //réinitialiser les modules
+  for(uint8_t module = 0; module < NBR_SLAVES; ++module) {
+    modules[module].buttonsToPress = 0;
+    modules[module].rightButtonsPressed = false;
+  }
+
+  uint8_t colorsToLight = 0;
+  if(fixedColors) {
+    for(uint8_t i = 0; i < nbColors; i++) {
+      addRandomColor(colorsToLight);
+    }
+  }
+
+  // Assigner les couleurs aux joueurs
+  for (uint8_t player = 0; player < MAX_PLAYERS; player++) {
+    if (players[player].nbrOfModules > 0) {
+      if(fixedColors) {
+        //Assigner la couleur à un module du joueur
+      }else{
+        // Assigner une couleur aléatoire à un module du joueur jusqu'à ce qu'il y ait nbColors assignés
+        // Attention à ne pas assigner plusieurs fois la même combianison couleur/module
+      }
+    }
+  }
+}
