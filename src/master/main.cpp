@@ -16,10 +16,12 @@
 #define PERIOD_BUTTON 100 // 100ms
 #define PERIOD_COMM 100 // 100ms
 #define DEFAULT_PLAY_TIME 2000 // 2s
+#define MIN_PLAY_TIME 500 // 1s
+#define MAX_PLAY_TIME 8000 // 5s
 #define ALL_MODULES ((1 << NBR_SLAVES)-1) // Setting 1 to all slaves
 
 // the possible state of the master, the modes should be just after the STOPGAME
-enum State{SETUP, STOPGAME, GAMEMODE1, GAMEMODE2, GAMEMODE3, NBR_GAMEMODES}; // Added different game modes as states
+enum State{SETUP, STOPGAME, GAMEMODE1, GAMEMODE2, GAMEMODE3, GAMEMODE4, NBR_GAMEMODES}; // Added different game modes as states
 
 struct PlayerStruct{
   uint8_t modules; //mask
@@ -33,6 +35,7 @@ struct ModuleStruct{
 };
 PlayerStruct players[MAX_PLAYERS];
 ModuleStruct modules[NBR_SLAVES];
+uint8_t modulesUsed = 0; //used to know which modules are used
 
 void initPlayers(PlayerStruct* players, ModuleStruct* modules);
 void sendCommand(MasterCommand command, uint8_t receivers);
@@ -56,7 +59,7 @@ SemaphoreHandle_t xRadioSemaphore;
 // define the tasks
 void TaskHandleButtons(void *pvParameters);
 void TaskReadFromSlaves(void *pvParameters);
-void TaskSendButtons(void *pvParameters);
+void TaskAssignButtons(void *pvParameters);
 
 
 void setup() {
@@ -139,7 +142,7 @@ void setup() {
     }
   }
 
-  if (xTaskCreate(TaskSendButtons, "TaskSendButtons", 128, NULL, 1, NULL) != pdPASS) {
+  if (xTaskCreate(TaskAssignButtons, "TaskAssignButtons", 128, NULL, 1, NULL) != pdPASS) {
     if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
       Serial.println(F("Erreur : création tâche échouée !"));
       xSemaphoreGive(xSerialSemaphore);
@@ -275,6 +278,48 @@ void TaskReadFromSlaves(void *pvParameters) {
   }
 }
 
+void TaskAssignButtons(void *pvParameters) {
+  (void) pvParameters; // suppress unused parameter warning
+  if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
+    Serial.println(F("Tache assignation boutons lancée"));
+    xSemaphoreGive(xSerialSemaphore);
+  }
+
+  PayloadFromSlaveStruct payload;
+  //DEBUG savoir combien j'utilise de stack
+  UBaseType_t watermark = uxTaskGetStackHighWaterMark(NULL);
+  if (xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {
+    Serial.print(F("Stack remaining (TaskAssignButtons): "));
+    Serial.println(watermark);
+    xSemaphoreGive(xSerialSemaphore);
+  }
+  uint32_t waitTime = DEFAULT_PLAY_TIME; // 2s (temps d'attente par défaut)
+
+  for(;;){
+    switch(actualState){
+      case SETUP: {
+        waitTime = DEFAULT_PLAY_TIME; // attente avant la prochaine itération
+        break;
+      }
+      case STOPGAME: {
+        waitTime = DEFAULT_PLAY_TIME; // attente avant la prochaine itération
+        break;
+      }
+      case GAMEMODE1: {
+        waitTime = readNormalSpeedFromPot(); // attente avant la prochaine itération
+        //TODO ajouter la difficulté
+
+        break;
+      }
+      default: {
+        waitTime = DEFAULT_PLAY_TIME; // attente avant la prochaine itération
+        break;
+      }
+    }
+    vTaskDelay(waitTime /portTICK_PERIOD_MS);
+  }
+}
+
 /*--------------------------------------------------------------------
   ------------------------------FUNCTIONS-----------------------------
   --------------------------------------------------------------------*/
@@ -311,8 +356,12 @@ void assignPlayerToModule(const PayloadFromSlaveStruct& payload) {
   }
   if(newPlayer != NONE) {
     // Assign the module to the new player
+    modulesUsed |= (1 << payload.slaveId); // Mark the module as used
     players[newPlayer].modules |= (1 << payload.slaveId); // Add the module to the new player
     players[newPlayer].nbrOfModules++;
+  }else{
+    // If the module is not assigned to any player, remove it from the used modules
+    modulesUsed &= ~(1 << payload.slaveId); // Mark the module as unused
   }
 }
 
@@ -322,6 +371,11 @@ uint8_t readGameModeFromPot() {
 
   uint8_t mode = map(analogRead(POTENTIOMETER_MODE_PIN), 0, 1023, FIRST_GAMEMODE, LAST_GAMEMODE);
   return constrain(mode, FIRST_GAMEMODE, LAST_GAMEMODE);
+}
+
+uint32_t readNormalSpeedFromPot() {
+  uint32_t speed = map(analogRead(POTENTIOMETER_NORMAL_SPEED_PIN), 0, 1023, MIN_PLAY_TIME, MAX_PLAY_TIME);
+  return constrain(speed, MIN_PLAY_TIME, MAX_PLAY_TIME);
 }
 
 bool sendPayloadToSlave(PayloadFromMasterStruct& payload, uint8_t slave){
@@ -448,107 +502,82 @@ void handlePayloadFromSlave(const PayloadFromSlaveStruct& payload) {
       if(payload.buttonsPressed==RIGHT_BUTTONS_PRESSED) {
         sendScore(payload.playerId, SCORE_SUCCESS);
         players[payload.playerId].score++;
-      } else {
+      }else if(payload.buttonsPressed==WRONG_BUTTONS_PRESSED) {
         sendScore(payload.playerId, SCORE_FAILED);
       }
       break;
     }
     case GAMEMODE2: { // Only the first player scores
+      if(payload.buttonsPressed==WRONG_BUTTONS_PRESSED) {
+        sendScore(payload.playerId, SCORE_FAILED);
+        break;
+      }
       if(payload.buttonsPressed==RIGHT_BUTTONS_PRESSED) {
         sendScore(payload.playerId, SCORE_SUCCESS);
         players[payload.playerId].score++;
-        for(uint8_t module = 0; module < NB_COLORS; ++module) {
+        for(uint8_t module = 0; module < NBR_SLAVES; ++module) {
           if (modules[module].playerOfModule != payload.playerId && modules[module].playerOfModule != NONE) {
             sendScoreToSlave(module, SCORE_FAILED);
-            break;
           }
         }
       }
+      break;
     }
-    case GAMEMODE3: { // 2 buttons, All players score
-      if(!payload.buttonsPressed){
-        sendScore(payload.playerId, SCORE_FAILED);
-        Serial.print("❌ Player ");
-        Serial.print(payload.playerId);
-        Serial.println(" pressed the wrong button.");
+    case GAMEMODE3: { // all players need to press their buttons (collaborative game)
+      //TODO wrong buttons are not taken into account
+      if(payload.buttonsPressed==RIGHT_BUTTONS_PRESSED) {
+        modules[payload.slaveId].rightButtonsPressed = true;
       }else{
-        modules[payload.slaveId].rightButtonsPressed = true; // Set the flag to true
+        modules[payload.slaveId].rightButtonsPressed = false;
       }
+
+      // Check if all the modules have been pressed
+      bool allRight = true;
+      for(uint8_t module = 0; module < NBR_SLAVES; ++module) {
+        if(modules[module].rightButtonsPressed == false && modules[module].playerOfModule != NONE) {
+          allRight = false;
+        }
+      }
+      if(allRight) {
+        for(uint8_t player = 0; player < NB_COLORS; ++player) {
+          if(players[player].nbrOfModules > 0) {
+            sendScore(player, SCORE_SUCCESS);
+            players[player].score++;
+          }
+        }
+      }
+      break;
+    }
+    case GAMEMODE4: { // 2 buttons, may be on different modules
+      if(payload.buttonsPressed==WRONG_BUTTONS_PRESSED) {
+        sendScore(payload.playerId, SCORE_FAILED);
+        break;
+      }else if(payload.buttonsPressed==RIGHT_BUTTONS_PRESSED) {
+        modules[payload.slaveId].rightButtonsPressed = true;
+      }else{
+        modules[payload.slaveId].rightButtonsPressed = false;
+      }
+
+      // Check if all the modules of the player have been pressed
+      bool allRight = true;
+      for(uint8_t module = 0; module < NBR_SLAVES; ++module) {
+        if(modules[module].playerOfModule == payload.playerId) {
+          if(modules[module].rightButtonsPressed == false) {
+            allRight = false;
+          }
+        }
+      }
+      if(allRight){
+        sendScore(payload.playerId, SCORE_SUCCESS);
+        players[payload.playerId].score++;
+      }
+      break;
+    }
+    default: {
+      // Do nothing
       break;
     }
   }
 }
 
-// Function to assign random buttons to modules and players and return the receivers bitmask
-uint8_t assignButtons(PlayerStruct* players, ModuleStruct* modules, uint8_t nbrButtons){
-  uint8_t bitmask = 0;
-  //tout éteindre
-  for (uint8_t i = 0; i < NBR_SLAVES; i++){
-    modules[i].buttonsToPress = 0;
-  }
-
-  //choisir quelles couleurs allumer
-  Color colorsToLight[nbrButtons];
-  for(uint8_t i=0; i< nbrButtons; i++){
-    bool colorAttributed = false;
-    Color color;
-    do{
-      color = static_cast<Color>(random(0, NB_COLORS)); // Randomly select a color
-      colorAttributed = true; // Assume the color is not already in use
-      for (uint8_t j = 0; j < i; j++){
-        if (colorsToLight[j] == color){ // Check if the color is already in use
-          colorAttributed = false; // If it is, set the flag to false and break the loop
-          break;
-
-        }
-      }
-    } while (!colorAttributed); // Keep trying until a color is found that is not already in the array
-    colorsToLight[i]=color;
-  }
-
-  // Assign a module to each color for players with modules
-  if (nbrButtons > 0 && nbrButtons <= NB_COLORS) {
-    for (uint8_t player = 0; player < NB_COLORS; player++) {
-      if (players[player].nbrOfModules > 0) {  // Only process players who have modules
-        for (uint8_t button = 0; button < nbrButtons; button++) {
-          // Find all available modules for this player
-          uint8_t availableModules = players[player].modules;  // Get the bitmask of available modules
-          uint8_t validModuleCount = 0;  // To count the valid modules
-          
-          // Count the number of modules available for the player
-          for (uint8_t i = 0; i < NBR_SLAVES; i++) {
-            if ((availableModules & (1 << i)) != 0) {  // Check if module i is available for the player
-              validModuleCount++;
-            }
-          }
-
-          // If there are valid modules, select one randomly
-          if (validModuleCount > 0) {
-            uint8_t randomModuleIndex = random(0, validModuleCount);  // Randomly select a module index
-            uint8_t selectedModule = 0;  // This will hold the selected module id
-
-            // Iterate through the available modules and find the randomly selected one
-            for (uint8_t i = 0; i < NBR_SLAVES; i++) {
-              if ((availableModules & (1 << i)) != 0) {  // If the module is available for the player
-                if (randomModuleIndex == 0) {
-                  selectedModule = i;  // Found the randomly selected module
-                  break;
-                }
-                randomModuleIndex--;  // Decrement the counter
-              }
-            }
-
-            // Now that we have selected a module, assign the button to it
-            modules[selectedModule].buttonsToPress |= (1 << colorsToLight[button]);  // Set the bit for this button in the module's buttonsToPress bitmask
-            bitmask |= (1 << selectedModule);  // Set the bit for this player in the receivers bitmask (only if they have modules)
-          }
-        }
-      }
-    }
-  } else {
-    bitmask = (1 << NBR_SLAVES) - 1;  // If no buttons, set all players as receivers
-  }
-
-  Serial.println(bitmask,BIN);  // Print the receivers bitmask for debugging
-  return bitmask;  // Return the receivers bitmask
-}
+ 
