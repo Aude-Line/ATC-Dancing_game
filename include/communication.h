@@ -11,18 +11,24 @@ enum MasterCommand : uint8_t {
     CMD_SETUP,
     CMD_BUTTONS,
     CMD_SCORE,
-    CMD_START_GAME,
+    CMD_START_GAME
+};
+
+enum SlaveButtonsState : uint8_t {
+    WRONG_BUTTONS_PRESSED,
+    RIGHT_BUTTONS_PRESSED,
+    BUTTONS_RELEASED
 };
 
 struct PayloadFromMasterStruct{
-  MasterCommand command;
-  uint8_t buttonsToPress; //Masque de bits pour savoir quels boutons appuyer (0x01 = bouton 1, 0x02 = bouton 2, 0x04 = bouton 3, 0x08 = bouton 4)
-  uint16_t score;
+  MasterCommand command = CMD_STOP_GAME;
+  uint8_t buttonsToPress = 0; //Masque de bits pour savoir quels boutons appuyer (0x01 = bouton 1, 0x02 = bouton 2, 0x04 = bouton 3, 0x08 = bouton 4)
+  uint16_t score = 0;
 };
 struct PayloadFromSlaveStruct{
   uint8_t slaveId = 0; //id du slave qui envoie le message
   Player playerId = NONE; //needed for setup and adjustment
-  bool rightButtonsPressed = false; //en mode le/les bons boutons qui devaient être appuyés ont tous été appuyés
+  SlaveButtonsState buttonsPressed = BUTTONS_RELEASED; //en mode le/les bons boutons qui devaient être appuyés ont tous été appuyés
 };
 
 void print64Hex(uint64_t val);

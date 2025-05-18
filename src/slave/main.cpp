@@ -21,6 +21,7 @@
 
 #define PERIOD_BUTTON 100 // 100ms
 #define PERIOD_COMM 100 // 100ms
+#define VOLUME_BUZZER 3 // Volume of the buzzer (0-15)
 
 enum GameState{STOPGAME, SETUP, GAME}; // Added different game modes as states
 
@@ -98,7 +99,7 @@ void setup() {
   buttons[BLUE] = new Button(BLUE_BUTTON_PIN, BLUE_LED_PIN, &aw);
   buttons[YELLOW] = new Button(YELLOW_BUTTON_PIN, YELLOW_LED_PIN, &aw);
   pinMode(BUZZER_PIN, OUTPUT);
-  analogWrite(BUZZER_PIN, 3); // Set the buzzer to low volume
+  analogWrite(BUZZER_PIN, VOLUME_BUZZER); // Set the buzzer volume
 
   // Initialize the radio
   Serial.print(F("address to send: "));
@@ -121,6 +122,15 @@ void setup() {
   radio.openReadingPipe(1, addresses[0]+SLAVE_ID);
   radio.startListening(); // Always in listening mode (except when sending
 
+  // Start with a clean module
+  resetModule();
+
+  if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
+    Serial.print(F("Je suis le slave ID : "));
+    Serial.println(SLAVE_ID);
+    xSemaphoreGive(xSerialSemaphore);
+  }
+
   // Create the tasks
   // The tasks are created in the setup function, and they will run in parallel
   if (xTaskCreate(TaskReadFromMaster, "TaskReadFromMaster", 128, NULL, 2, NULL) != pdPASS) {
@@ -135,15 +145,6 @@ void setup() {
       Serial.println(F("Erreur : création tâche échouée !"));
       xSemaphoreGive(xSerialSemaphore);
     }
-  }
-
-  // Start with a clean module
-  resetModule();
-
-  if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
-    Serial.print(F("Je suis le slave ID : "));
-    Serial.println(SLAVE_ID);
-    xSemaphoreGive(xSerialSemaphore);
   }
 
   vTaskStartScheduler();
@@ -245,11 +246,11 @@ void resetModule(){
   score = 0;
 }
 
-bool sendPayloadToMaster(bool rightButtonsPressed=false) {
+bool sendPayloadToMaster(SlaveButtonsState buttonsPressed=BUTTONS_RELEASED) {
   PayloadFromSlaveStruct payload;
   payload.slaveId = SLAVE_ID;
   payload.playerId = idPlayer;
-  payload.rightButtonsPressed = rightButtonsPressed;
+  payload.buttonsPressed = buttonsPressed;
   bool send = false;
 
   if (xSemaphoreTake(xRadioSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
@@ -376,18 +377,22 @@ void setUpActions(){
 }
 
 void gameActions(){
-  bool rightButtonsPressed = true;
+  SlaveButtonsState rightButtonsPressed = RIGHT_BUTTONS_PRESSED;
   bool shouldSend = false;
   for(uint8_t button = 0; button < NB_COLORS; button++){
     if(buttons[button]->getState() == JUST_PRESSED){
       tone(BUZZER_PIN, SOUND_FREQUENCY_NEUTRAL, SOUND_DURATION_SHORT);
       shouldSend = true;
       if(buttons[button]->isLedOn()==false){
-        rightButtonsPressed = false;
+        rightButtonsPressed = WRONG_BUTTONS_PRESSED;
       }
     }
+    if(buttons[button]->getState() == JUST_RELEASED){
+      shouldSend = true;
+      rightButtonsPressed = BUTTONS_RELEASED;
+    }
   }
-  if(rightButtonsPressed){
+  if(rightButtonsPressed==RIGHT_BUTTONS_PRESSED && shouldSend){
     for(uint8_t button = 0; button < NB_COLORS; button++){
       if(buttons[button]->isLedOn()){
         if(buttons[button]->getState() == NOT_PRESSED || buttons[button]->getState() == JUST_RELEASED){

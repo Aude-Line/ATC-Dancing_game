@@ -30,5 +30,5 @@ void printPayloadFromSlaveStruct(const PayloadFromSlaveStruct& payload) {
     Serial.print(F("  ID player: "));
     Serial.println(payload.playerId);
     Serial.print(F("  Buttons are pressed correctly: "));
-    Serial.println(payload.rightButtonsPressed);
+    Serial.println(payload.buttonsPressed);
 }
