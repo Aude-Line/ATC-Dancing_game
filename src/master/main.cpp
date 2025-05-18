@@ -38,10 +38,19 @@ ModuleStruct modules[NBR_SLAVES];
 uint8_t modulesUsed = 0; //used to know which modules are used
 
 void initPlayers(PlayerStruct* players, ModuleStruct* modules);
-void sendCommand(MasterCommand command, uint8_t receivers);
+bool isAtLeastOnePlayerPresent();
+void assignPlayerToModule(const PayloadFromSlaveStruct& payload);
+uint8_t readGameModeFromPot();
+uint32_t readNormalSpeedFromPot();
+bool sendPayloadToSlave(PayloadFromMasterStruct& payload, uint8_t slave);
+void sendCommand(MasterCommand command, uint8_t receiversBitmask);
 void sendScore(uint8_t playerId, uint16_t score);
-bool readFromSlave(PayloadFromSlaveStruct& payload);
-uint8_t assignButtons(PlayerStruct* players, ModuleStruct* modules, uint8_t nbrButtons);
+void sendScoreToSlave(uint8_t slave, uint16_t score);
+bool getPayloadFromSlaves(PayloadFromSlaveStruct& payload);
+void handlePayloadFromSlave(const PayloadFromSlaveStruct& payload);
+void addRandomColor(uint8_t& existingColors);
+int8_t getRandomModule(uint8_t mask);
+void assignColorsToPlayer(uint8_t nbColors, bool fixedColors = true);
 
 // instantiate an object for the nRF24L01 transceiver
 RF24 radio(CE_PIN, CSN_PIN);
@@ -128,14 +137,14 @@ void setup() {
 
   // Create the tasks
   // The tasks are created in the setup function, and they will run in parallel
-  if (xTaskCreate(TaskHandleButtons, "TaskHandleButtons", 128, NULL, 3, NULL) != pdPASS) {
+  if (xTaskCreate(TaskHandleButtons, "TaskHandleButtons", 100, NULL, 3, NULL) != pdPASS) {
     if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
       Serial.println(F("Erreur : création tâche échouée !"));
       xSemaphoreGive(xSerialSemaphore);
     }
   }
 
-  if (xTaskCreate(TaskReadFromSlaves, "TaskReadFromSlaves", 128, NULL, 1, NULL) != pdPASS) {
+  if (xTaskCreate(TaskReadFromSlaves, "TaskReadFromSlaves", 100, NULL, 1, NULL) != pdPASS) {
     if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
       Serial.println(F("Erreur : création tâche échouée !"));
       xSemaphoreGive(xSerialSemaphore);
@@ -235,7 +244,7 @@ void TaskHandleButtons(void *pvParameters) {
           initPlayers(players, modules); //reset the players and modules
           sendCommand(CMD_SETUP, ALL_MODULES); // Telling all the slaves to enter setup mode
           if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
-            Serial.print(F("Enter setup mode"));
+            Serial.println(F("Enter setup mode"));
             xSemaphoreGive(xSerialSemaphore);
           }
         }
@@ -249,7 +258,6 @@ void TaskHandleButtons(void *pvParameters) {
         break;
       }
     }
-
     vTaskDelay(PERIOD_BUTTON / portTICK_PERIOD_MS);
   }
 }
@@ -296,25 +304,22 @@ void TaskAssignButtons(void *pvParameters) {
   uint32_t waitTime = DEFAULT_PLAY_TIME; // 2s (temps d'attente par défaut)
 
   for(;;){
-    switch(actualState){
-      case SETUP: {
-        waitTime = DEFAULT_PLAY_TIME; // attente avant la prochaine itération
-        break;
-      }
-      case STOPGAME: {
-        waitTime = DEFAULT_PLAY_TIME; // attente avant la prochaine itération
-        break;
-      }
-      case GAMEMODE1: {
-        waitTime = readNormalSpeedFromPot(); // attente avant la prochaine itération
-        //TODO ajouter la difficulté
-
-        break;
-      }
-      default: {
-        waitTime = DEFAULT_PLAY_TIME; // attente avant la prochaine itération
-        break;
-      }
+    if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
+      Serial.println(F("Iteration boutons"));
+      Serial.print(F("Speed: "));
+      Serial.println(waitTime);
+      xSemaphoreGive(xSerialSemaphore);
+    }
+    if(actualState == GAMEMODE1 || actualState == GAMEMODE2 || actualState == GAMEMODE3){
+      waitTime = readNormalSpeedFromPot(); // attente avant la prochaine itération
+      //TODO ajouter la difficulté
+      assignColorsToPlayer(1);
+    }else if(actualState == GAMEMODE4){
+      waitTime = readNormalSpeedFromPot(); // attente avant la prochaine itération
+      //TODO ajouter la difficulté
+      assignColorsToPlayer(2);
+    }else{
+      waitTime = DEFAULT_PLAY_TIME; // attente avant la prochaine itération
     }
     vTaskDelay(waitTime /portTICK_PERIOD_MS);
   }
@@ -411,6 +416,7 @@ bool sendPayloadToSlave(PayloadFromMasterStruct& payload, uint8_t slave){
     }
     xSemaphoreGive(xSerialSemaphore);
   }
+  return report;
 }
 
 void sendCommand(MasterCommand command, uint8_t receiversBitmask){
@@ -602,8 +608,28 @@ void addRandomColor(uint8_t& existingColors) {
 }
 
 //Faire une fonction qui choisi aléatoirement un module d'un masque
+int8_t getRandomModule(uint8_t mask) {
+  uint8_t count = 0;
+  for (uint8_t i = 0; i < NBR_SLAVES; i++) {
+    if (mask & (1 << i)) {
+      count++;
+    }
+  }
+  if (count == 0) return -1; // No module available
 
-void assignColorsToPlayer(uint8_t nbColors, bool fixedColors = true) {
+  uint8_t randIndex = random(0, count);
+  for (int8_t i = 0; i < NBR_SLAVES; i++) {
+    if (mask & (1 << i)) {
+      if (randIndex == 0) {
+        return i;
+      }
+      randIndex--;
+    }
+  }
+  return -1; // Should never reach here
+}
+
+void assignColorsToPlayer(uint8_t nbColors, bool fixedColors) {
   //réinitialiser les modules
   for(uint8_t module = 0; module < NBR_SLAVES; ++module) {
     modules[module].buttonsToPress = 0;
@@ -621,11 +647,41 @@ void assignColorsToPlayer(uint8_t nbColors, bool fixedColors = true) {
   for (uint8_t player = 0; player < MAX_PLAYERS; player++) {
     if (players[player].nbrOfModules > 0) {
       if(fixedColors) {
-        //Assigner la couleur à un module du joueur
+        //parcourir toutes les couleurs possibles
+        for(uint8_t color = 0; color < NB_COLORS; color++) {
+          if(colorsToLight & (1 << color)) {
+            // Si la couleur doit être alluméee, l'assigner à un module du joueur
+            int8_t module = getRandomModule(players[player].modules);
+            if (module != -1) {
+              modules[module].buttonsToPress |= (1 << color); // Assigner la couleur au module
+            }
+          }
+        }
       }else{
         // Assigner une couleur aléatoire à un module du joueur jusqu'à ce qu'il y ait nbColors assignés
         // Attention à ne pas assigner plusieurs fois la même combianison couleur/module
+        uint8_t countColors = 0;
+        do{
+          int8_t module = getRandomModule(players[player].modules);
+          if (module != -1) {
+            uint8_t color = random(0, NB_COLORS);
+            if ((modules[module].buttonsToPress & (1 << color)) == 0) { // Si la couleur n'est pas déjà assignée au module
+              modules[module].buttonsToPress |= (1 << color); // Assigner la couleur au module
+              countColors++;
+            }
+          }
+        }while(countColors < nbColors);
       }
     }
+  }
+
+  // Envoi des couleurs aux modules
+  for (uint8_t module = 0; module < NBR_SLAVES; ++module) {
+    PayloadFromMasterStruct payload;
+    payload.command = CMD_BUTTONS;
+    payload.buttonsToPress = modules[module].buttonsToPress;
+    payload.score = 0; // Not used in this case
+    // Envoi de la commande au module
+    sendPayloadToSlave(payload, module);
   }
 }
