@@ -3,15 +3,13 @@
 
 #include <Arduino.h>
 
-#define SCORE_FAILED 0
-#define SCORE_SUCCESS 1
 #define SOUND_DURATION_LONG 500
 #define SOUND_DURATION_SHORT 100
 #define SOUND_FREQUENCY_GREAT 2000
 #define SOUND_FREQUENCY_BAD 100
 #define SOUND_FREQUENCY_NEUTRAL 600
 
-enum Color{
+enum Color : uint8_t {
     RED, 
     GREEN, 
     BLUE, 

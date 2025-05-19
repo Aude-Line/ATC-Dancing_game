@@ -12,11 +12,11 @@
 #include <communication.h>
 #include <button.h>
 
-#define PERIOD_BUTTON 500 // 100ms
-#define PERIOD_COMM 500 // 100ms
-#define DEFAULT_PLAY_TIME 2000 // 2s
-#define MIN_PLAY_TIME 500 // 1s
-#define MAX_PLAY_TIME 8000 // 5s
+#define PERIOD_BUTTON 100 // 100ms
+#define PERIOD_COMM 100 // 100ms
+#define DEFAULT_PLAY_TIME 4000 // 2s
+#define MIN_PLAY_TIME 500 // 0.5s
+#define MAX_PLAY_TIME 8000 // 8s
 #define ALL_MODULES ((1 << NBR_SLAVES)-1) // Setting 1 to all slaves
 
 // the possible state of the master, the modes should be just after the STOPGAME
@@ -36,9 +36,8 @@ struct ModuleStruct{
 };
 PlayerStruct players[MAX_PLAYERS];
 ModuleStruct modules[NBR_SLAVES];
-uint8_t modulesUsed = 0; //used to know which modules are used
 
-void initPlayers(PlayerStruct* players, ModuleStruct* modules);
+void initPlayers();
 bool isAtLeastOnePlayerPresent();
 void assignPlayerToModule(const PayloadFromSlaveStruct& payload);
 uint8_t readGameModeFromPot();
@@ -124,7 +123,7 @@ void setup() {
     xSemaphoreGive(xSerialSemaphore);
   }
 
-  initPlayers(players, modules);
+  initPlayers();
 
   if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
     Serial.println(F("Je suis le master"));
@@ -140,20 +139,18 @@ void setup() {
     }
   }
 
-  if (xTaskCreate(TaskReadFromSlaves, "TaskReadFromSlaves", 128, NULL, 1, NULL) != pdPASS) {
+  if (xTaskCreate(TaskReadFromSlaves, "TaskReadFromSlaves", 160, NULL, 1, NULL) != pdPASS) {
     if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
       Serial.println(F("Erreur : création tâche échouée !"));
       xSemaphoreGive(xSerialSemaphore);
     }
   }
-  /*
-  if (xTaskCreate(TaskAssignButtons, "TaskAssignButtons", 256, NULL, 1, NULL) != pdPASS) {
+  if (xTaskCreate(TaskAssignButtons, "TaskAssignButtons", 200, NULL, 1, NULL) != pdPASS) {
     if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
       Serial.println(F("Erreur : création tâche échouée !"));
       xSemaphoreGive(xSerialSemaphore);
     }
   }
-    */
 
   vTaskStartScheduler();
 }
@@ -173,14 +170,6 @@ void TaskHandleButtons(void *pvParameters) {
     xSemaphoreGive(xSerialSemaphore);
   }
 
-  //DEBUG savoir combien j'utilise de stack
-  UBaseType_t watermark = uxTaskGetStackHighWaterMark(NULL);
-  if (xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {
-    Serial.print(F("Stack remaining (TaskHandleButtons): "));
-    Serial.println(watermark);
-    xSemaphoreGive(xSerialSemaphore);
-  }
-
   for (;;) {
     // update the state of the buttons
     StartButton.updateState();
@@ -195,8 +184,6 @@ void TaskHandleButtons(void *pvParameters) {
         if(!isAtLeastOnePlayerPresent()){
           if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
             Serial.println(F("Pick a player first!!!"));
-            Serial.print(F("We should be in game mode: "));
-            Serial.println(readGameModeFromPot());
             xSemaphoreGive(xSerialSemaphore);
           }
           actualState = STOPGAME;
@@ -207,14 +194,13 @@ void TaskHandleButtons(void *pvParameters) {
           if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
             Serial.print(F("We are in game mode: "));
             Serial.println(gameMode);
-            Serial.print(F("Modules of players: "));
-            for (uint8_t i = 0; i < MAX_PLAYERS; ++i) {
+            Serial.print(F("Players have modules: "));
+            for(uint8_t i = 0; i < NBR_SLAVES; ++i){
               Serial.print(players[i].modules, BIN);
               Serial.print(F(" "));
             }
             xSemaphoreGive(xSerialSemaphore);
           }
-          gameMode = GAMEMODE1; // TODO: remove this line, for testing purposes only
           actualState = static_cast<State>(STOPGAME + gameMode);
           //init scores
           for (uint8_t i = 0; i < MAX_PLAYERS; ++i) {
@@ -230,7 +216,7 @@ void TaskHandleButtons(void *pvParameters) {
         actualState = STOPGAME;
         sendCommand(CMD_STOP_GAME, ALL_MODULES); // Telling all the slaves to enter game mode
         if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
-            Serial.print(F("Game paused"));
+            Serial.println(F("Game paused"));
             xSemaphoreGive(xSerialSemaphore);
         }
         break;
@@ -240,7 +226,7 @@ void TaskHandleButtons(void *pvParameters) {
         if(SetUpButton.getState() == JUST_PRESSED){
           SetUpButton.turnOnLed();
           actualState = SETUP;
-          initPlayers(players, modules); //reset the players and modules
+          initPlayers(); //reset the players and modules
           sendCommand(CMD_SETUP, ALL_MODULES); // Telling all the slaves to enter setup mode
           if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
             Serial.println(F("Enter setup mode"));
@@ -257,12 +243,15 @@ void TaskHandleButtons(void *pvParameters) {
         break;
       }
     }
+    // Print Debug
+    /*
     if (xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {
       UBaseType_t watermark = uxTaskGetStackHighWaterMark(NULL);
       Serial.print(F("[TaskHandleButtons] Stack remaining: "));
       Serial.println(watermark);
       xSemaphoreGive(xSerialSemaphore);
     }
+    */
     vTaskDelay(PERIOD_BUTTON / portTICK_PERIOD_MS);
   }
 }
@@ -273,20 +262,21 @@ void TaskReadFromSlaves(void *pvParameters) {
     Serial.println(F("Tache lecture lancée"));
     xSemaphoreGive(xSerialSemaphore);
   }
-
   PayloadFromSlaveStruct payload;
-  //DEBUG savoir combien j'utilise de stack
-  UBaseType_t watermark = uxTaskGetStackHighWaterMark(NULL);
-  if (xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {
-    Serial.print(F("Stack remaining (TaskReadFromSlaves): "));
-    Serial.println(watermark);
-    xSemaphoreGive(xSerialSemaphore);
-  }
 
   for (;;) {
     if (getPayloadFromSlaves(payload)) {
       handlePayloadFromSlave(payload);
     }
+    // Print Debug
+    /*
+    if (xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {
+      UBaseType_t watermark = uxTaskGetStackHighWaterMark(NULL);
+      Serial.print(F("[TaskReadFromSlaves] Stack remaining: "));
+      Serial.println(watermark);
+      xSemaphoreGive(xSerialSemaphore);
+    }
+    */
     vTaskDelay(PERIOD_COMM / portTICK_PERIOD_MS);
   }
 }
@@ -300,24 +290,16 @@ void TaskAssignButtons(void *pvParameters) {
 
   PayloadFromSlaveStruct payload;
   uint16_t waitTime = DEFAULT_PLAY_TIME; // 2s (temps d'attente par défaut)
-  //DEBUG savoir combien j'utilise de stack
-  if (xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {
-    UBaseType_t watermark = uxTaskGetStackHighWaterMark(NULL);
-    Serial.print(F("Stack remaining (TaskAssignButtons): "));
-    Serial.println(watermark);
-    xSemaphoreGive(xSerialSemaphore);
-  }
 
   for(;;){
+    //debug
+    /*
     if (xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {
-      UBaseType_t watermark = uxTaskGetStackHighWaterMark(NULL);
-      Serial.print(F("Stack remaining (TaskAssignButtons): "));
-      Serial.println(watermark);
-      Serial.println(F("Iteration boutons"));
       Serial.print(F("Speed: "));
       Serial.println(waitTime);
       xSemaphoreGive(xSerialSemaphore);
     }
+    */
     if(actualState == GAMEMODE1 || actualState == GAMEMODE2 || actualState == GAMEMODE3){
       waitTime = readNormalSpeedFromPot(); // attente avant la prochaine itération
       //TODO ajouter la difficulté
@@ -329,6 +311,15 @@ void TaskAssignButtons(void *pvParameters) {
     }else{
       waitTime = DEFAULT_PLAY_TIME; // attente avant la prochaine itération
     }
+    // Print Debug
+    /*
+    if (xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {
+      UBaseType_t watermark = uxTaskGetStackHighWaterMark(NULL);
+      Serial.print(F("[TaskAssignButtons] Stack remaining: "));
+      Serial.println(watermark);
+      xSemaphoreGive(xSerialSemaphore);
+    }
+    */
     vTaskDelay(waitTime /portTICK_PERIOD_MS);
   }
 }
@@ -337,7 +328,7 @@ void TaskAssignButtons(void *pvParameters) {
   ------------------------------FUNCTIONS-----------------------------
   --------------------------------------------------------------------*/
 
-void initPlayers(PlayerStruct* players, ModuleStruct* modules){
+void initPlayers(){
   for (uint8_t i = 0; i < MAX_PLAYERS; i++) {
     players[i].modules = 0;
     players[i].nbrOfModules=0; //calcul dynamique avec modules
@@ -370,12 +361,8 @@ void assignPlayerToModule(const PayloadFromSlaveStruct& payload) {
   }
   if(newPlayer != NONE) {
     // Assign the module to the new player
-    modulesUsed |= (1 << payload.slaveId); // Mark the module as used
     players[newPlayer].modules |= (1 << payload.slaveId); // Add the module to the new player
     players[newPlayer].nbrOfModules++;
-  }else{
-    // If the module is not assigned to any player, remove it from the used modules
-    modulesUsed &= ~(1 << payload.slaveId); // Mark the module as unused
   }
 }
 
@@ -406,6 +393,7 @@ bool sendPayloadToSlave(PayloadFromMasterStruct& payload, uint8_t slave){
   
   // Print the payload on the serial monitor
   // Affichage complet
+  /*
   if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
     Serial.println(F("\n==========NEW TRANSMISSION=========="));
     Serial.print(F("Slave index: "));
@@ -422,6 +410,7 @@ bool sendPayloadToSlave(PayloadFromMasterStruct& payload, uint8_t slave){
     }
     xSemaphoreGive(xSerialSemaphore);
   }
+  */
   return report;
 }
 
@@ -486,6 +475,7 @@ bool getPayloadFromSlaves(PayloadFromSlaveStruct& payload){
 
   //Print the payload on the serial monitor
   // This is not necessary in the final version, but can be useful for debugging
+  /*
   if(newMessage) {  // timeout 10 ticks
     if (xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {
       Serial.println(F("\n==========NEW RECEPTION=========="));
@@ -496,6 +486,7 @@ bool getPayloadFromSlaves(PayloadFromSlaveStruct& payload){
       xSemaphoreGive(xSerialSemaphore);
     }
   }
+  */
 
   return newMessage; // Return true if a new message was received
 }

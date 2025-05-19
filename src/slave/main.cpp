@@ -133,14 +133,14 @@ void setup() {
 
   // Create the tasks
   // The tasks are created in the setup function, and they will run in parallel
-  if (xTaskCreate(TaskReadFromMaster, "TaskReadFromMaster", 128, NULL, 2, NULL) != pdPASS) {
+  if (xTaskCreate(TaskReadFromMaster, "TaskReadFromMaster", 160, NULL, 2, NULL) != pdPASS) {
     if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
       Serial.println(F("Erreur : création tâche échouée !"));
       xSemaphoreGive(xSerialSemaphore);
     }
   }
   
-  if (xTaskCreate(TaskHandleButtons, "TaskHandleButtons", 128, NULL, 1, NULL) != pdPASS) {
+  if (xTaskCreate(TaskHandleButtons, "TaskHandleButtons", 160, NULL, 1, NULL) != pdPASS) {
     if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
       Serial.println(F("Erreur : création tâche échouée !"));
       xSemaphoreGive(xSerialSemaphore);
@@ -166,21 +166,22 @@ void TaskReadFromMaster(void *pvParameters) {
   }
 
   PayloadFromMasterStruct payload;
-  //DEBUG savoir combien j'utilise de stack
-  UBaseType_t watermark = uxTaskGetStackHighWaterMark(NULL);
-  if (xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {
-    Serial.print(F("Stack remaining (TaskReadFromMaster): "));
-    Serial.println(watermark);
-    xSemaphoreGive(xSerialSemaphore);
-  }
 
   for (;;) {
     if (getPayloadFromMaster(payload)) {
       handlePayloadFromMaster(payload);
     }
+    // Print Debug
+    /*
+    if (xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {
+      UBaseType_t watermark = uxTaskGetStackHighWaterMark(NULL);
+      Serial.print(F("[TaskReadFromMaster] Stack remaining: "));
+      Serial.println(watermark);
+      xSemaphoreGive(xSerialSemaphore);
+    }
+    */
     vTaskDelay(PERIOD_COMM / portTICK_PERIOD_MS);
   }
-
 }
 
 //this function will also send messages to the master
@@ -188,14 +189,6 @@ void TaskHandleButtons(void *pvParameters) {
   (void) pvParameters; // suppress unused parameter warning
   if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
     Serial.println(F("Tache boutons lancée"));
-    xSemaphoreGive(xSerialSemaphore);
-  }
-
-  //DEBUG savoir combien j'utilise de stack
-  UBaseType_t watermark = uxTaskGetStackHighWaterMark(NULL);
-  if (xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {
-    Serial.print(F("Stack remaining (TaskHandleButtons): "));
-    Serial.println(watermark);
     xSemaphoreGive(xSerialSemaphore);
   }
 
@@ -222,6 +215,16 @@ void TaskHandleButtons(void *pvParameters) {
         break;
       }
     }
+
+    // Print Debug
+    /*
+    if (xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {
+      UBaseType_t watermark = uxTaskGetStackHighWaterMark(NULL);
+      Serial.print(F("[TaskHandleButtons] Stack remaining: "));
+      Serial.println(watermark);
+      xSemaphoreGive(xSerialSemaphore);
+    }
+    */
     vTaskDelay(PERIOD_BUTTON / portTICK_PERIOD_MS);
   }
 }
@@ -263,6 +266,8 @@ bool sendPayloadToMaster(SlaveButtonsState buttonsPressed=BUTTONS_RELEASED) {
     xSemaphoreGive(xRadioSemaphore);
     send = report;
 
+    // Print the payload on the serial monitor for debugging
+    /*
     if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
       Serial.println(F("\n==NEW TRANSMISSION=="));
       printPayloadFromSlaveStruct(payload);
@@ -275,6 +280,7 @@ bool sendPayloadToMaster(SlaveButtonsState buttonsPressed=BUTTONS_RELEASED) {
       }
       xSemaphoreGive(xSerialSemaphore);
     }
+    */
   }
   return send;
 }
@@ -290,20 +296,23 @@ bool getPayloadFromMaster(PayloadFromMasterStruct& payload) {
     }
     xSemaphoreGive(xRadioSemaphore);
   }
+
+  // Print the payload on the serial monitor for debugging
+  /*
+  if(result){
+    if (xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
+      Serial.println(F("\n==NEW RECEPTION=="));
+      printPayloadFromMasterStruct(payloadFromMaster);
+      Serial.println(F("Payload from master:"));
+      Serial.println(payloadFromMaster.command);
+      xSemaphoreGive(xSerialSemaphore);
+    }
+  }
+  */
   return result;
 }
 
 void handlePayloadFromMaster(const PayloadFromMasterStruct& payloadFromMaster) {
-  //Print the payload on the serial monitor
-  // This is not necessary in the final version, but can be useful for debugging
-  if (xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
-    Serial.println(F("\n==NEW RECEPTION=="));
-    printPayloadFromMasterStruct(payloadFromMaster);
-    Serial.println(F("Payload from master:"));
-    Serial.println(payloadFromMaster.command);
-    xSemaphoreGive(xSerialSemaphore);
-  }
-
   switch (payloadFromMaster.command) {
     case CMD_SETUP: {
       actualState = SETUP;
