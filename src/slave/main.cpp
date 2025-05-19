@@ -20,7 +20,7 @@
 #endif
 
 #define PERIOD_BUTTON 100 // 100ms
-#define PERIOD_COMM 100 // 100ms
+#define PERIOD_COMM 50 // 100ms
 #define VOLUME_BUZZER 3 // Volume of the buzzer (0-15)
 
 enum GameState{STOPGAME, SETUP, GAME}; // Added different game modes as states
@@ -244,8 +244,8 @@ void resetModule(){
     Serial.println(F("===================Reset module==================="));
     xSemaphoreGive(xSerialSemaphore);
   }
-  turnOffLeds();
   idPlayer = NONE;
+  turnOffLeds();
   score = 0;
 }
 

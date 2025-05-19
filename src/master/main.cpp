@@ -12,8 +12,8 @@
 #include <communication.h>
 #include <button.h>
 
-#define PERIOD_BUTTON 100 // 100ms
-#define PERIOD_COMM 100 // 100ms
+#define PERIOD_BUTTON 200 // 100ms
+#define PERIOD_COMM 50 // 100ms
 #define DEFAULT_PLAY_TIME 4000 // 2s
 #define MIN_PLAY_TIME 500 // 0.5s
 #define MAX_PLAY_TIME 8000 // 8s
@@ -145,7 +145,7 @@ void setup() {
       xSemaphoreGive(xSerialSemaphore);
     }
   }
-  if (xTaskCreate(TaskAssignButtons, "TaskAssignButtons", 200, NULL, 1, NULL) != pdPASS) {
+  if (xTaskCreate(TaskAssignButtons, "TaskAssignButtons", 200, NULL, 2, NULL) != pdPASS) {
     if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
       Serial.println(F("Erreur : création tâche échouée !"));
       xSemaphoreGive(xSerialSemaphore);
@@ -195,10 +195,11 @@ void TaskHandleButtons(void *pvParameters) {
             Serial.print(F("We are in game mode: "));
             Serial.println(gameMode);
             Serial.print(F("Players have modules: "));
-            for(uint8_t i = 0; i < NBR_SLAVES; ++i){
+            for(uint8_t i = 0; i < MAX_PLAYERS; ++i){
               Serial.print(players[i].modules, BIN);
               Serial.print(F(" "));
             }
+            Serial.println();
             xSemaphoreGive(xSerialSemaphore);
           }
           actualState = static_cast<State>(STOPGAME + gameMode);
@@ -223,11 +224,11 @@ void TaskHandleButtons(void *pvParameters) {
       }
       case NOT_PRESSED:{
         // If the game is not running, they may press on the setup button to assign the modules to the players
-        if(SetUpButton.getState() == JUST_PRESSED){
+        if(SetUpButton.getState() == JUST_PRESSED && actualState == STOPGAME){
           SetUpButton.turnOnLed();
-          actualState = SETUP;
           initPlayers(); //reset the players and modules
           sendCommand(CMD_SETUP, ALL_MODULES); // Telling all the slaves to enter setup mode
+          actualState = SETUP;
           if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
             Serial.println(F("Enter setup mode"));
             xSemaphoreGive(xSerialSemaphore);
@@ -337,7 +338,7 @@ void initPlayers(){
   for (uint8_t i = 0; i < NBR_SLAVES; i++){
     modules[i].playerOfModule = NONE; //NONE
     modules[i].buttonsToPress = 0;
-    modules[i].rightButtonsPressed = false; //en mode le/les bons boutons qui devaient être appuyés ont tous été appuyés
+    modules[i].rightButtonsPressed = true; //en mode le/les bons boutons qui devaient être appuyés ont tous été appuyés
   }
 }
 
@@ -351,6 +352,13 @@ bool isAtLeastOnePlayerPresent() {
 }
 
 void assignPlayerToModule(const PayloadFromSlaveStruct& payload) {
+  if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
+    Serial.print(F("Assigning module "));
+    Serial.print(payload.slaveId);
+    Serial.print(F(" to player "));
+    Serial.println(payload.playerId);
+    xSemaphoreGive(xSerialSemaphore);
+  }
   Player lastPlayer = modules[payload.slaveId].playerOfModule;
   Player newPlayer = payload.playerId;
   modules[payload.slaveId].playerOfModule = newPlayer;
@@ -378,6 +386,8 @@ uint16_t readNormalSpeedFromPot() {
 
 bool sendPayloadToSlave(PayloadFromMasterStruct& payload, uint8_t slave){
   bool report = false;
+
+  //variables for debug
   unsigned long start_timer = 0;
   unsigned long end_timer = 0;
 
@@ -492,9 +502,15 @@ bool getPayloadFromSlaves(PayloadFromSlaveStruct& payload){
 }
 
 void handlePayloadFromSlave(const PayloadFromSlaveStruct& payload) {
+  if(payload.playerId != modules[payload.slaveId].playerOfModule) {
+    // If the player is not the same as the one assigned to the module, assign it
+    // To easily correct setup errors
+    assignPlayerToModule(payload);
+    return;
+  }
+
   switch (actualState) {
     case SETUP: {
-      assignPlayerToModule(payload);
       break;
     }
     case STOPGAME: {
@@ -542,7 +558,7 @@ void handlePayloadFromSlave(const PayloadFromSlaveStruct& payload) {
         }
       }
       if(allRight) {
-        for(uint8_t player = 0; player < NB_COLORS; ++player) {
+        for(uint8_t player = 0; player < MAX_PLAYERS; ++player) {
           if(players[player].nbrOfModules > 0) {
             sendScore(player, SCORE_SUCCESS);
             players[player].score++;
@@ -624,7 +640,7 @@ void assignColorsToPlayer(uint8_t nbColors, bool fixedColors) {
   //réinitialiser les modules
   for(uint8_t module = 0; module < NBR_SLAVES; ++module) {
     modules[module].buttonsToPress = 0;
-    modules[module].rightButtonsPressed = false;
+    modules[module].rightButtonsPressed = true; //si il n'y a pas de boutons à appuyé, ils sont tous bien appuyés
   }
 
   uint8_t colorsToLight = 0;
@@ -644,6 +660,7 @@ void assignColorsToPlayer(uint8_t nbColors, bool fixedColors) {
             // Si la couleur doit être alluméee, l'assigner à un module du joueur
             int8_t module = getRandomModule(players[player].nbrOfModules, players[player].modules);
             if (module != -1) {
+              modules[module].rightButtonsPressed = false; //au moins un bouton doit être appuyé
               modules[module].buttonsToPress |= (1 << color); // Assigner la couleur au module
             }
           }
@@ -657,6 +674,7 @@ void assignColorsToPlayer(uint8_t nbColors, bool fixedColors) {
           if (module != -1) {
             uint8_t color = random(0, NB_COLORS);
             if ((modules[module].buttonsToPress & (1 << color)) == 0) { // Si la couleur n'est pas déjà assignée au module
+              modules[module].rightButtonsPressed = false; //au moins un bouton doit être appuyé
               modules[module].buttonsToPress |= (1 << color); // Assigner la couleur au module
               countColors++;
             }
