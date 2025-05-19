@@ -21,7 +21,7 @@
 #define ALL_MODULES ((1 << NBR_SLAVES)-1) // Setting 1 to all slaves
 
 // the possible state of the master, the modes should be just after the STOPGAME
-enum State{SETUP, STOPGAME, GAMEMODE1, GAMEMODE2, GAMEMODE3, GAMEMODE4, NBR_GAMEMODES}; // Added different game modes as states
+enum State : uint8_t{SETUP, STOPGAME, GAMEMODE1, GAMEMODE2, GAMEMODE3, GAMEMODE4, NBR_GAMEMODES}; // Added different game modes as states
 
 struct PlayerStruct{
   uint8_t modules; //mask
@@ -41,22 +41,22 @@ void initPlayers(PlayerStruct* players, ModuleStruct* modules);
 bool isAtLeastOnePlayerPresent();
 void assignPlayerToModule(const PayloadFromSlaveStruct& payload);
 uint8_t readGameModeFromPot();
-uint32_t readNormalSpeedFromPot();
+uint16_t readNormalSpeedFromPot();
 bool sendPayloadToSlave(PayloadFromMasterStruct& payload, uint8_t slave);
 void sendCommand(MasterCommand command, uint8_t receiversBitmask);
 void sendScore(uint8_t playerId, uint16_t score);
 void sendScoreToSlave(uint8_t slave, uint16_t score);
 bool getPayloadFromSlaves(PayloadFromSlaveStruct& payload);
 void handlePayloadFromSlave(const PayloadFromSlaveStruct& payload);
-void addRandomColor(uint8_t& existingColors);
+void addRandomColor(uint8_t &existingColors);
 int8_t getRandomModule(uint8_t mask);
 void assignColorsToPlayer(uint8_t nbColors, bool fixedColors = true);
 
 // instantiate an object for the nRF24L01 transceiver
 RF24 radio(CE_PIN, CSN_PIN);
 
-Button* StartButton; // Defined the start and setup button and states
-Button* SetUpButton;
+Button StartButton(START_BUTTON_PIN, START_LED_PIN);
+Button SetUpButton(SETUP_BUTTON_PIN, SETUP_LED_PIN);
 MP3Module* mp3Module;
 State actualState = STOPGAME;
 
@@ -89,12 +89,8 @@ void setup() {
       xSemaphoreGive( ( xRadioSemaphore ) );  // Make the Radio available for use, by "Giving" the Semaphore.
   }
 
-  // Inizialization of buttons and potentiometers
-  StartButton = new Button(START_BUTTON_PIN, START_LED_PIN);
-  SetUpButton = new Button (SETUP_BUTTON_PIN, SETUP_LED_PIN);
-
   //Initalize the mp3 player
-  mp3Module = new MP3Module(MP3_RX_PIN, MP3_TX_PIN);
+  //mp3Module = new MP3Module(MP3_RX_PIN, MP3_TX_PIN);
 
   //Initialize the potentiometers
   pinMode(POTENTIOMETER_MODE_PIN, INPUT);
@@ -151,7 +147,7 @@ void setup() {
     }
   }
 
-  if (xTaskCreate(TaskAssignButtons, "TaskAssignButtons", 128, NULL, 1, NULL) != pdPASS) {
+  if (xTaskCreate(TaskAssignButtons, "TaskAssignButtons", 140, NULL, 1, NULL) != pdPASS) {
     if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
       Serial.println(F("Erreur : création tâche échouée !"));
       xSemaphoreGive(xSerialSemaphore);
@@ -186,14 +182,14 @@ void TaskHandleButtons(void *pvParameters) {
 
   for (;;) {
     // update the state of the buttons
-    StartButton->updateState();
-    SetUpButton->updateState();
+    StartButton.updateState();
+    SetUpButton.updateState();
 
     // Change the state of the module based on the state of the buttons
-    switch(StartButton->getState()){
+    switch(StartButton.getState()){
       case JUST_PRESSED: { // Start the game
-        SetUpButton->turnOffLed();
-        StartButton->turnOnLed();
+        SetUpButton.turnOffLed();
+        StartButton.turnOnLed();
 
         if(!isAtLeastOnePlayerPresent()){
           if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
@@ -227,7 +223,7 @@ void TaskHandleButtons(void *pvParameters) {
         break;
       }
       case JUST_RELEASED: { //Pause the game
-        StartButton->turnOffLed();
+        StartButton.turnOffLed();
         actualState = STOPGAME;
         sendCommand(CMD_STOP_GAME, ALL_MODULES); // Telling all the slaves to enter game mode
         if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
@@ -238,8 +234,8 @@ void TaskHandleButtons(void *pvParameters) {
       }
       case NOT_PRESSED:{
         // If the game is not running, they may press on the setup button to assign the modules to the players
-        if(SetUpButton->getState() == JUST_PRESSED){
-          SetUpButton->turnOnLed();
+        if(SetUpButton.getState() == JUST_PRESSED){
+          SetUpButton.turnOnLed();
           actualState = SETUP;
           initPlayers(players, modules); //reset the players and modules
           sendCommand(CMD_SETUP, ALL_MODULES); // Telling all the slaves to enter setup mode
@@ -304,6 +300,12 @@ void TaskAssignButtons(void *pvParameters) {
   uint32_t waitTime = DEFAULT_PLAY_TIME; // 2s (temps d'attente par défaut)
 
   for(;;){
+    UBaseType_t watermark = uxTaskGetStackHighWaterMark(NULL);
+    if (xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {
+      Serial.print(F("Stack remaining (TaskAssignButtons): "));
+      Serial.println(watermark);
+      xSemaphoreGive(xSerialSemaphore);
+    }
     if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
       Serial.println(F("Iteration boutons"));
       Serial.print(F("Speed: "));
@@ -378,8 +380,8 @@ uint8_t readGameModeFromPot() {
   return constrain(mode, FIRST_GAMEMODE, LAST_GAMEMODE);
 }
 
-uint32_t readNormalSpeedFromPot() {
-  uint32_t speed = map(analogRead(POTENTIOMETER_NORMAL_SPEED_PIN), 0, 1023, MIN_PLAY_TIME, MAX_PLAY_TIME);
+uint16_t readNormalSpeedFromPot() {
+  uint16_t speed = map(analogRead(POTENTIOMETER_NORMAL_SPEED_PIN), 0, 1023, MIN_PLAY_TIME, MAX_PLAY_TIME);
   return constrain(speed, MIN_PLAY_TIME, MAX_PLAY_TIME);
 }
 
@@ -586,7 +588,7 @@ void handlePayloadFromSlave(const PayloadFromSlaveStruct& payload) {
   }
 }
 
-void addRandomColor(uint8_t& existingColors) {
+void addRandomColor(uint8_t &existingColors) {
   // Compter combien de couleurs sont déjà utilisées
   uint8_t count = 0;
   for (uint8_t i = 0; i < NB_COLORS; i++) {
