@@ -133,14 +133,14 @@ void setup() {
 
   // Create the tasks
   // The tasks are created in the setup function, and they will run in parallel
-  if (xTaskCreate(TaskReadFromMaster, "TaskReadFromMaster", 160, NULL, 1, NULL) != pdPASS) {
+  if (xTaskCreate(TaskReadFromMaster, "TaskReadFromMaster", 160, NULL, 2, NULL) != pdPASS) {
     if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
       Serial.println(F("Erreur : création tâche échouée !"));
       xSemaphoreGive(xSerialSemaphore);
     }
   }
   
-  if (xTaskCreate(TaskHandleButtons, "TaskHandleButtons", 160, NULL, 2, NULL) != pdPASS) {
+  if (xTaskCreate(TaskHandleButtons, "TaskHandleButtons", 160, NULL, 1, NULL) != pdPASS) {
     if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
       Serial.println(F("Erreur : création tâche échouée !"));
       xSemaphoreGive(xSerialSemaphore);
@@ -267,7 +267,6 @@ bool sendPayloadToMaster(SlaveButtonsState buttonsPressed=BUTTONS_RELEASED) {
     send = report;
 
     // Print the payload on the serial monitor for debugging
-    /*
     if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
       Serial.println(F("\n==NEW TRANSMISSION=="));
       printPayloadFromSlaveStruct(payload);
@@ -280,7 +279,6 @@ bool sendPayloadToMaster(SlaveButtonsState buttonsPressed=BUTTONS_RELEASED) {
       }
       xSemaphoreGive(xSerialSemaphore);
     }
-    */
   }
   return send;
 }
@@ -374,6 +372,11 @@ void setUpActions(){
         turnOffLeds();
         buttons[button]->turnOnLed();
         idPlayer = static_cast<Player>(button);
+        if (xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
+          Serial.print(F("Player selected: "));
+          Serial.println(idPlayer);
+          xSemaphoreGive(xSerialSemaphore);
+        }
       }
       bool sendSuccess = sendPayloadToMaster();
       if(!sendSuccess){

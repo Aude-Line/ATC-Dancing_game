@@ -13,7 +13,7 @@
 #include <button.h>
 
 #define PERIOD_BUTTON 200 // 100ms
-#define PERIOD_COMM 50 // 100ms
+#define PERIOD_COMM 20 // 100ms
 #define DEFAULT_PLAY_TIME 4000 // 2s
 #define MIN_PLAY_TIME 500 // 0.5s
 #define MAX_PLAY_TIME 8000 // 8s
@@ -502,7 +502,7 @@ bool getPayloadFromSlaves(PayloadFromSlaveStruct& payload){
 }
 
 void handlePayloadFromSlave(const PayloadFromSlaveStruct& payload) {
-  if(payload.playerId != modules[payload.slaveId].playerOfModule) {
+  if(payload.playerId != modules[payload.slaveId].playerOfModule || payload.playerId != NONE) {
     // If the player is not the same as the one assigned to the module, assign it
     // To easily correct setup errors
     assignPlayerToModule(payload);
