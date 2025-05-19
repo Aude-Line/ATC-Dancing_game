@@ -145,7 +145,7 @@ void setup() {
       xSemaphoreGive(xSerialSemaphore);
     }
   }
-  if (xTaskCreate(TaskAssignButtons, "TaskAssignButtons", 200, NULL, 2, NULL) != pdPASS) {
+  if (xTaskCreate(TaskAssignButtons, "TaskAssignButtons", 200, NULL, 1, NULL) != pdPASS) {
     if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
       Serial.println(F("Erreur : création tâche échouée !"));
       xSemaphoreGive(xSerialSemaphore);
@@ -485,7 +485,7 @@ bool getPayloadFromSlaves(PayloadFromSlaveStruct& payload){
 
   //Print the payload on the serial monitor
   // This is not necessary in the final version, but can be useful for debugging
-  /*
+  
   if(newMessage) {  // timeout 10 ticks
     if (xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {
       Serial.println(F("\n==========NEW RECEPTION=========="));
@@ -496,7 +496,7 @@ bool getPayloadFromSlaves(PayloadFromSlaveStruct& payload){
       xSemaphoreGive(xSerialSemaphore);
     }
   }
-  */
+  
 
   return newMessage; // Return true if a new message was received
 }

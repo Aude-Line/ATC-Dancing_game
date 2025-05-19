@@ -133,14 +133,14 @@ void setup() {
 
   // Create the tasks
   // The tasks are created in the setup function, and they will run in parallel
-  if (xTaskCreate(TaskReadFromMaster, "TaskReadFromMaster", 160, NULL, 2, NULL) != pdPASS) {
+  if (xTaskCreate(TaskReadFromMaster, "TaskReadFromMaster", 160, NULL, 1, NULL) != pdPASS) {
     if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
       Serial.println(F("Erreur : création tâche échouée !"));
       xSemaphoreGive(xSerialSemaphore);
     }
   }
   
-  if (xTaskCreate(TaskHandleButtons, "TaskHandleButtons", 160, NULL, 1, NULL) != pdPASS) {
+  if (xTaskCreate(TaskHandleButtons, "TaskHandleButtons", 160, NULL, 2, NULL) != pdPASS) {
     if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
       Serial.println(F("Erreur : création tâche échouée !"));
       xSemaphoreGive(xSerialSemaphore);
@@ -240,13 +240,13 @@ void turnOffLeds(){
 }
 
 void resetModule(){
+  idPlayer = NONE;
+  turnOffLeds();
+  score = 0;
   if (xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
     Serial.println(F("===================Reset module==================="));
     xSemaphoreGive(xSerialSemaphore);
   }
-  idPlayer = NONE;
-  turnOffLeds();
-  score = 0;
 }
 
 bool sendPayloadToMaster(SlaveButtonsState buttonsPressed=BUTTONS_RELEASED) {
@@ -315,6 +315,7 @@ bool getPayloadFromMaster(PayloadFromMasterStruct& payload) {
 void handlePayloadFromMaster(const PayloadFromMasterStruct& payloadFromMaster) {
   switch (payloadFromMaster.command) {
     case CMD_SETUP: {
+      idPlayer = NONE;
       actualState = SETUP;
       resetModule();
       break;
