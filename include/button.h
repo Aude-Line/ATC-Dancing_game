@@ -4,7 +4,7 @@
 #include <Arduino.h>
 #include <Adafruit_AW9523.h>
 
-enum ButtonState {
+enum ButtonState : uint8_t {
   PRESSED = 0,       // LOW
   NOT_PRESSED = 1,    // HIGH
   JUST_PRESSED = 2,

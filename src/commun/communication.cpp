@@ -18,7 +18,7 @@ void printPayloadFromMasterStruct(const PayloadFromMasterStruct& payload) {
     Serial.print(F("  Command: "));
     Serial.println(payload.command);
     Serial.print(F("  ButtonsToPress: "));
-    Serial.println(payload.buttonsToPress);
+    Serial.println(payload.buttonsToPress, BIN);
     Serial.print(F("  Score: "));
     Serial.println(payload.score);
 }

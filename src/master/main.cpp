@@ -11,10 +11,9 @@
 #include <util.h>
 #include <communication.h>
 #include <button.h>
-#include <mp3.h>
 
-#define PERIOD_BUTTON 100 // 100ms
-#define PERIOD_COMM 100 // 100ms
+#define PERIOD_BUTTON 500 // 100ms
+#define PERIOD_COMM 500 // 100ms
 #define DEFAULT_PLAY_TIME 2000 // 2s
 #define MIN_PLAY_TIME 500 // 1s
 #define MAX_PLAY_TIME 8000 // 5s
@@ -22,6 +21,8 @@
 
 // the possible state of the master, the modes should be just after the STOPGAME
 enum State : uint8_t{SETUP, STOPGAME, GAMEMODE1, GAMEMODE2, GAMEMODE3, GAMEMODE4, NBR_GAMEMODES}; // Added different game modes as states
+const uint8_t FIRST_GAMEMODE = GAMEMODE1 - STOPGAME;
+const uint8_t LAST_GAMEMODE = NBR_GAMEMODES - STOPGAME - 1;
 
 struct PlayerStruct{
   uint8_t modules; //mask
@@ -49,7 +50,7 @@ void sendScoreToSlave(uint8_t slave, uint16_t score);
 bool getPayloadFromSlaves(PayloadFromSlaveStruct& payload);
 void handlePayloadFromSlave(const PayloadFromSlaveStruct& payload);
 void addRandomColor(uint8_t &existingColors);
-int8_t getRandomModule(uint8_t mask);
+int8_t getRandomModule(uint8_t nbModules, uint8_t mask);
 void assignColorsToPlayer(uint8_t nbColors, bool fixedColors = true);
 
 // instantiate an object for the nRF24L01 transceiver
@@ -57,7 +58,6 @@ RF24 radio(CE_PIN, CSN_PIN);
 
 Button StartButton(START_BUTTON_PIN, START_LED_PIN);
 Button SetUpButton(SETUP_BUTTON_PIN, SETUP_LED_PIN);
-MP3Module* mp3Module;
 State actualState = STOPGAME;
 
 //semaphore for serial communication
@@ -127,32 +127,33 @@ void setup() {
   initPlayers(players, modules);
 
   if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
-    Serial.print(F("Je suis le master"));
+    Serial.println(F("Je suis le master"));
     xSemaphoreGive(xSerialSemaphore);
   }
 
   // Create the tasks
   // The tasks are created in the setup function, and they will run in parallel
-  if (xTaskCreate(TaskHandleButtons, "TaskHandleButtons", 100, NULL, 3, NULL) != pdPASS) {
+  if (xTaskCreate(TaskHandleButtons, "TaskHandleButtons", 160, NULL, 3, NULL) != pdPASS) {
     if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
       Serial.println(F("Erreur : création tâche échouée !"));
       xSemaphoreGive(xSerialSemaphore);
     }
   }
 
-  if (xTaskCreate(TaskReadFromSlaves, "TaskReadFromSlaves", 100, NULL, 1, NULL) != pdPASS) {
+  if (xTaskCreate(TaskReadFromSlaves, "TaskReadFromSlaves", 128, NULL, 1, NULL) != pdPASS) {
     if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
       Serial.println(F("Erreur : création tâche échouée !"));
       xSemaphoreGive(xSerialSemaphore);
     }
   }
-
-  if (xTaskCreate(TaskAssignButtons, "TaskAssignButtons", 140, NULL, 1, NULL) != pdPASS) {
+  /*
+  if (xTaskCreate(TaskAssignButtons, "TaskAssignButtons", 256, NULL, 1, NULL) != pdPASS) {
     if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
       Serial.println(F("Erreur : création tâche échouée !"));
       xSemaphoreGive(xSerialSemaphore);
     }
   }
+    */
 
   vTaskStartScheduler();
 }
@@ -194,6 +195,8 @@ void TaskHandleButtons(void *pvParameters) {
         if(!isAtLeastOnePlayerPresent()){
           if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
             Serial.println(F("Pick a player first!!!"));
+            Serial.print(F("We should be in game mode: "));
+            Serial.println(readGameModeFromPot());
             xSemaphoreGive(xSerialSemaphore);
           }
           actualState = STOPGAME;
@@ -211,7 +214,7 @@ void TaskHandleButtons(void *pvParameters) {
             }
             xSemaphoreGive(xSerialSemaphore);
           }
-          gameMode = 1; // TODO: remove this line, for testing purposes only
+          gameMode = GAMEMODE1; // TODO: remove this line, for testing purposes only
           actualState = static_cast<State>(STOPGAME + gameMode);
           //init scores
           for (uint8_t i = 0; i < MAX_PLAYERS; ++i) {
@@ -254,6 +257,12 @@ void TaskHandleButtons(void *pvParameters) {
         break;
       }
     }
+    if (xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {
+      UBaseType_t watermark = uxTaskGetStackHighWaterMark(NULL);
+      Serial.print(F("[TaskHandleButtons] Stack remaining: "));
+      Serial.println(watermark);
+      xSemaphoreGive(xSerialSemaphore);
+    }
     vTaskDelay(PERIOD_BUTTON / portTICK_PERIOD_MS);
   }
 }
@@ -290,23 +299,20 @@ void TaskAssignButtons(void *pvParameters) {
   }
 
   PayloadFromSlaveStruct payload;
+  uint16_t waitTime = DEFAULT_PLAY_TIME; // 2s (temps d'attente par défaut)
   //DEBUG savoir combien j'utilise de stack
-  UBaseType_t watermark = uxTaskGetStackHighWaterMark(NULL);
   if (xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {
+    UBaseType_t watermark = uxTaskGetStackHighWaterMark(NULL);
     Serial.print(F("Stack remaining (TaskAssignButtons): "));
     Serial.println(watermark);
     xSemaphoreGive(xSerialSemaphore);
   }
-  uint32_t waitTime = DEFAULT_PLAY_TIME; // 2s (temps d'attente par défaut)
 
   for(;;){
-    UBaseType_t watermark = uxTaskGetStackHighWaterMark(NULL);
     if (xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {
+      UBaseType_t watermark = uxTaskGetStackHighWaterMark(NULL);
       Serial.print(F("Stack remaining (TaskAssignButtons): "));
       Serial.println(watermark);
-      xSemaphoreGive(xSerialSemaphore);
-    }
-    if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
       Serial.println(F("Iteration boutons"));
       Serial.print(F("Speed: "));
       Serial.println(waitTime);
@@ -340,6 +346,7 @@ void initPlayers(PlayerStruct* players, ModuleStruct* modules){
   for (uint8_t i = 0; i < NBR_SLAVES; i++){
     modules[i].playerOfModule = NONE; //NONE
     modules[i].buttonsToPress = 0;
+    modules[i].rightButtonsPressed = false; //en mode le/les bons boutons qui devaient être appuyés ont tous été appuyés
   }
 }
 
@@ -373,9 +380,6 @@ void assignPlayerToModule(const PayloadFromSlaveStruct& payload) {
 }
 
 uint8_t readGameModeFromPot() {
-  const uint8_t FIRST_GAMEMODE = GAMEMODE1;
-  const uint8_t LAST_GAMEMODE = NBR_GAMEMODES - 1;
-
   uint8_t mode = map(analogRead(POTENTIOMETER_MODE_PIN), 0, 1023, FIRST_GAMEMODE, LAST_GAMEMODE);
   return constrain(mode, FIRST_GAMEMODE, LAST_GAMEMODE);
 }
@@ -390,7 +394,7 @@ bool sendPayloadToSlave(PayloadFromMasterStruct& payload, uint8_t slave){
   unsigned long start_timer = 0;
   unsigned long end_timer = 0;
 
-  if(xSemaphoreTake(xRadioSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
+  if(xSemaphoreTake(xRadioSemaphore, (TickType_t)20) == pdTRUE) {  // timeout 10 ticks
     radio.stopListening();
     radio.openWritingPipe(addresses[0]+slave);
     start_timer = micros();                  // start the timer
@@ -457,7 +461,7 @@ void sendScoreToSlave(uint8_t slave, uint16_t score){
 }
 
 bool getPayloadFromSlaves(PayloadFromSlaveStruct& payload){
-  uint8_t pipe;
+  uint8_t pipe = 0;
   bool newMessage = false;
 
   if (xSemaphoreTake(xRadioSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
@@ -610,16 +614,10 @@ void addRandomColor(uint8_t &existingColors) {
 }
 
 //Faire une fonction qui choisi aléatoirement un module d'un masque
-int8_t getRandomModule(uint8_t mask) {
-  uint8_t count = 0;
-  for (uint8_t i = 0; i < NBR_SLAVES; i++) {
-    if (mask & (1 << i)) {
-      count++;
-    }
-  }
-  if (count == 0) return -1; // No module available
+int8_t getRandomModule(uint8_t nbModules, uint8_t mask) {
+  if (nbModules == 0) return -1; // No module available
 
-  uint8_t randIndex = random(0, count);
+  uint8_t randIndex = random(0, nbModules);
   for (int8_t i = 0; i < NBR_SLAVES; i++) {
     if (mask & (1 << i)) {
       if (randIndex == 0) {
@@ -653,7 +651,7 @@ void assignColorsToPlayer(uint8_t nbColors, bool fixedColors) {
         for(uint8_t color = 0; color < NB_COLORS; color++) {
           if(colorsToLight & (1 << color)) {
             // Si la couleur doit être alluméee, l'assigner à un module du joueur
-            int8_t module = getRandomModule(players[player].modules);
+            int8_t module = getRandomModule(players[player].nbrOfModules, players[player].modules);
             if (module != -1) {
               modules[module].buttonsToPress |= (1 << color); // Assigner la couleur au module
             }
@@ -664,7 +662,7 @@ void assignColorsToPlayer(uint8_t nbColors, bool fixedColors) {
         // Attention à ne pas assigner plusieurs fois la même combianison couleur/module
         uint8_t countColors = 0;
         do{
-          int8_t module = getRandomModule(players[player].modules);
+          int8_t module = getRandomModule(players[player].nbrOfModules, players[player].modules);
           if (module != -1) {
             uint8_t color = random(0, NB_COLORS);
             if ((modules[module].buttonsToPress & (1 << color)) == 0) { // Si la couleur n'est pas déjà assignée au module
@@ -679,6 +677,9 @@ void assignColorsToPlayer(uint8_t nbColors, bool fixedColors) {
 
   // Envoi des couleurs aux modules
   for (uint8_t module = 0; module < NBR_SLAVES; ++module) {
+    if(modules[module].playerOfModule == NONE) {
+      continue; // Skip if the module is not assigned to any player
+    }
     PayloadFromMasterStruct payload;
     payload.command = CMD_BUTTONS;
     payload.buttonsToPress = modules[module].buttonsToPress;
