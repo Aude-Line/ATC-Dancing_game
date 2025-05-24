@@ -392,7 +392,7 @@ uint8_t readGameModeFromPot() {
 }
 
 uint16_t readNormalSpeedFromPot() {
-  uint16_t speed = map(analogRead(POTENTIOMETER_NORMAL_SPEED_PIN), 0, 1023, MIN_PLAY_TIME, MAX_PLAY_TIME);
+  uint16_t speed = map(analogRead(POTENTIOMETER_NORMAL_SPEED_PIN), 0, 1023, MAX_PLAY_TIME, MIN_PLAY_TIME);
   return constrain(speed, MIN_PLAY_TIME, MAX_PLAY_TIME);
 }
 
