@@ -42,7 +42,7 @@ void Button::toggleLed(){
 
 void Button::turnOnLed(){
   if (ledAw9523) {
-    aw->digitalWrite(ledPin, HIGH); // LED allumée (active LOW)
+    aw->digitalWrite(ledPin, HIGH); // LED allumée (active HIGH)
   } else {
     digitalWrite(ledPin, HIGH);    // LED allumée (active HIGH)
   }
@@ -51,7 +51,7 @@ void Button::turnOnLed(){
 
 void Button::turnOffLed(){
   if (ledAw9523) {
-    aw->digitalWrite(ledPin, LOW); // LED éteinte (active LOW)
+    aw->digitalWrite(ledPin, LOW); // LED éteinte (active HIGH)
   } else {
     digitalWrite(ledPin, LOW);      // LED éteinte (active HIGH)
   }

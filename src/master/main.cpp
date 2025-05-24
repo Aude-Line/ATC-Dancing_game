@@ -71,7 +71,7 @@ void TaskAssignButtons(void *pvParameters);
 
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
   while (!Serial) {
     ; // wait for serial port to connect. Needed for native USB, on LEONARDO, MICRO, YUN, and other 32u4 based boards.
   }
@@ -297,8 +297,10 @@ void TaskAssignButtons(void *pvParameters) {
   uint16_t waitTime = DEFAULT_PLAY_TIME; // 2s (temps d'attente par défaut)
 
   for(;;){
-    sendCommand(CMD_TURN_OFF_LEDS, ALL_MODULES); // Telling all the slaves to turn off their LEDS
-    vTaskDelay(500 / portTICK_PERIOD_MS); // wait a bit to let the slaves turn off their LEDs
+    if(actualState >= GAMEMODE1 && actualState < NBR_GAMEMODES){
+      sendCommand(CMD_TURN_OFF_LEDS, ALL_MODULES); // Telling all the slaves to turn off their LEDS
+      vTaskDelay(500 / portTICK_PERIOD_MS); // wait a bit to let the slaves turn off their LEDs
+    }
     //debug
     /*
     if (xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {
@@ -309,11 +311,9 @@ void TaskAssignButtons(void *pvParameters) {
     */
     if(actualState == GAMEMODE1 || actualState == GAMEMODE2 || actualState == GAMEMODE3 || actualState == GAMEMODE5){
       waitTime = readNormalSpeedFromPot(); // attente avant la prochaine itération
-      //TODO ajouter la difficulté
       assignColorsToPlayer(1);
     }else if(actualState == GAMEMODE4){
       waitTime = readNormalSpeedFromPot(); // attente avant la prochaine itération
-      //TODO ajouter la difficulté
       assignColorsToPlayer(2);
     }else{
       waitTime = DEFAULT_PLAY_TIME; // attente avant la prochaine itération

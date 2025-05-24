@@ -58,7 +58,7 @@ void TaskHandleButtons(void *pvParameters);
 
 void setup() {
   //Connect to the serial
-  Serial.begin(9600);
+  Serial.begin(115200);
   while (!Serial) {
     ; // wait for serial port to connect. Needed for native USB, on LEONARDO, MICRO, YUN, and other 32u4 based boards.
   }
@@ -249,13 +249,14 @@ void resetModule(){
 }
 
 bool sendPayloadToMaster(SlaveButtonsState buttonsPressed=BUTTONS_RELEASED) {
-  PayloadFromSlaveStruct payload;
-  payload.slaveId = SLAVE_ID;
-  payload.playerId = idPlayer;
-  payload.buttonsPressed = buttonsPressed;
   bool send = false;
 
   if (xSemaphoreTake(xRadioSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
+    PayloadFromSlaveStruct payload;
+    payload.slaveId = SLAVE_ID;
+    payload.playerId = idPlayer;
+    payload.buttonsPressed = buttonsPressed;
+  
     //début com 
     radio.stopListening();
     unsigned long start_timer = micros();                  // start the timer
@@ -336,7 +337,8 @@ void handlePayloadFromMaster(const PayloadFromMasterStruct& payloadFromMaster) {
         matrix.print(score);
         matrix.writeDisplay();
       } else if (payloadFromMaster.score == SCORE_NEUTRAL) {
-        tone(BUZZER_PIN, SOUND_FREQUENCY_NEUTRAL, SOUND_DURATION_SHORT);
+        //ne rien faire
+        //tone(BUZZER_PIN, SOUND_FREQUENCY_NEUTRAL, SOUND_DURATION_SHORT); (deuxième bip de confirmation du master)
       }
       break;
     }
