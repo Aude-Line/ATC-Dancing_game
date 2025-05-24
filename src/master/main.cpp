@@ -20,7 +20,7 @@
 #define ALL_MODULES ((1 << NBR_SLAVES)-1) // Setting 1 to all slaves
 
 // the possible state of the master, the modes should be just after the STOPGAME
-enum State : uint8_t{SETUP, STOPGAME, GAMEMODE1, GAMEMODE2, GAMEMODE3, GAMEMODE4, NBR_GAMEMODES}; // Added different game modes as states
+enum State : uint8_t{SETUP, STOPGAME, GAMEMODE1, GAMEMODE2, GAMEMODE3, GAMEMODE4, GAMEMODE5, NBR_GAMEMODES}; // Added different game modes as states
 const uint8_t FIRST_GAMEMODE = GAMEMODE1 - STOPGAME;
 const uint8_t LAST_GAMEMODE = NBR_GAMEMODES - STOPGAME - 1;
 
@@ -305,7 +305,7 @@ void TaskAssignButtons(void *pvParameters) {
       xSemaphoreGive(xSerialSemaphore);
     }
     */
-    if(actualState == GAMEMODE1 || actualState == GAMEMODE2 || actualState == GAMEMODE3){
+    if(actualState == GAMEMODE1 || actualState == GAMEMODE2 || actualState == GAMEMODE3 || actualState == GAMEMODE5){
       waitTime = readNormalSpeedFromPot(); // attente avant la prochaine itération
       //TODO ajouter la difficulté
       assignColorsToPlayer(1);
@@ -446,7 +446,7 @@ void sendCommand(MasterCommand command, uint8_t receiversBitmask){
   }
 }
 
-void sendScore(uint8_t playerId, uint16_t score){
+void sendScore(uint8_t playerId, SCORE score){
   PayloadFromMasterStruct payloadFromMaster;
   payloadFromMaster.command = CMD_SCORE;
   payloadFromMaster.buttonsToPress = 0;
@@ -460,7 +460,7 @@ void sendScore(uint8_t playerId, uint16_t score){
   }
 }
 
-void sendScoreToSlave(uint8_t slave, uint16_t score){
+void sendScoreToSlave(uint8_t slave, SCORE score){
   PayloadFromMasterStruct payloadFromMaster;
   payloadFromMaster.command = CMD_SCORE;
   payloadFromMaster.buttonsToPress = 0;
@@ -601,6 +601,15 @@ void handlePayloadFromSlave(const PayloadFromSlaveStruct& payload) {
       }
       break;
     }
+    case GAMEMODE5: { // 3 buttons, may be on different modules
+      if(payload.buttonsPressed==RIGHT_BUTTONS_PRESSED) {
+        sendScore(payload.playerId, SCORE_SUCCESS);
+        players[payload.playerId].score++;
+      }else if(payload.buttonsPressed==WRONG_BUTTONS_PRESSED) {
+        sendScore(payload.playerId, SCORE_NEUTRAL);
+      }
+      break;
+    }
     default: {
       // Do nothing
       break;
@@ -701,7 +710,7 @@ void assignColorsToPlayer(uint8_t nbColors, bool fixedColors) {
     PayloadFromMasterStruct payload;
     payload.command = CMD_BUTTONS;
     payload.buttonsToPress = modules[module].buttonsToPress;
-    payload.score = 0; // Not used in this case
+    payload.score = SCORE_NEUTRAL; // Not used in this case
     // Envoi de la commande au module
     sendPayloadToSlave(payload, module);
   }

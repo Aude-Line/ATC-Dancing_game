@@ -4,9 +4,6 @@
 #include <Arduino.h>
 #include <util.h>
 
-#define SCORE_FAILED false
-#define SCORE_SUCCESS true
-
 extern const uint64_t addresses[2]; // adresses utilisées pour la communication entre le master et les slaves, definies dans le .cpp
 
 enum MasterCommand : uint8_t {
@@ -15,6 +12,12 @@ enum MasterCommand : uint8_t {
     CMD_BUTTONS,
     CMD_SCORE,
     CMD_START_GAME
+};
+
+enum SCORE : uint8_t {
+    SCORE_FAILED = 0,
+    SCORE_SUCCESS = 1,
+    SCORE_NEUTRAL = 2 // Used to indicate a neutral score, e.g., when the game is still ongoing
 };
 
 enum SlaveButtonsState : uint8_t {
@@ -26,7 +29,7 @@ enum SlaveButtonsState : uint8_t {
 struct PayloadFromMasterStruct{
   MasterCommand command = CMD_STOP_GAME;
   uint8_t buttonsToPress = 0; //Masque de bits pour savoir quels boutons appuyer (0x01 = bouton 1, 0x02 = bouton 2, 0x04 = bouton 3, 0x08 = bouton 4)
-  bool score = SCORE_FAILED; //true si le joueur a réussi, false sinon
+  SCORE score = SCORE_FAILED; //true si le joueur a réussi, false sinon
 };
 struct PayloadFromSlaveStruct{
   uint8_t slaveId = 0; //id du slave qui envoie le message

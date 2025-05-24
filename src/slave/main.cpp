@@ -328,13 +328,16 @@ void handlePayloadFromMaster(const PayloadFromMasterStruct& payloadFromMaster) {
     case CMD_SCORE: {
       if (payloadFromMaster.score == SCORE_FAILED) {
         tone(BUZZER_PIN, SOUND_FREQUENCY_BAD, SOUND_DURATION_LONG);
+        turnOffLeds();
       } else if (payloadFromMaster.score == SCORE_SUCCESS) {
         score += 1;
         tone(BUZZER_PIN, SOUND_FREQUENCY_GREAT, SOUND_DURATION_LONG);
+        turnOffLeds();
+        matrix.print(score);
+        matrix.writeDisplay();
+      } else if (payloadFromMaster.score == SCORE_NEUTRAL) {
+        tone(BUZZER_PIN, SOUND_FREQUENCY_NEUTRAL, SOUND_DURATION_SHORT);
       }
-      turnOffLeds();
-      matrix.print(score);
-      matrix.writeDisplay();
       break;
     }
     case CMD_START_GAME: {
