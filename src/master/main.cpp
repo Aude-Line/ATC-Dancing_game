@@ -297,6 +297,8 @@ void TaskAssignButtons(void *pvParameters) {
   uint16_t waitTime = DEFAULT_PLAY_TIME; // 2s (temps d'attente par défaut)
 
   for(;;){
+    sendCommand(CMD_TURN_OFF_LEDS, ALL_MODULES); // Telling all the slaves to turn off their LEDS
+    vTaskDelay(500 / portTICK_PERIOD_MS); // wait a bit to let the slaves turn off their LEDs
     //debug
     /*
     if (xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {

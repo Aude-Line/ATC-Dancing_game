@@ -20,7 +20,7 @@
 #endif
 
 #define PERIOD_BUTTON 100 // 100ms
-#define PERIOD_COMM 50 // 100ms
+#define PERIOD_COMM 50 // 50ms
 
 enum GameState{STOPGAME, SETUP, GAME}; // Added different game modes as states
 
@@ -350,6 +350,10 @@ void handlePayloadFromMaster(const PayloadFromMasterStruct& payloadFromMaster) {
     }
     case CMD_STOP_GAME: {
       actualState = STOPGAME;
+      turnOffLeds();
+      break;
+    }
+    case CMD_TURN_OFF_LEDS: {
       turnOffLeds();
       break;
     }
