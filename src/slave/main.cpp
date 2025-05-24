@@ -238,6 +238,12 @@ void turnOffLeds(){
   }
 }
 
+void turnOnLeds(){
+  for (uint8_t button=0; button<NB_COLORS; ++button){
+    buttons[button]->turnOnLed();
+  }
+}
+
 void resetModule(){
   idPlayer = NONE;
   turnOffLeds();
@@ -352,7 +358,7 @@ void handlePayloadFromMaster(const PayloadFromMasterStruct& payloadFromMaster) {
     }
     case CMD_STOP_GAME: {
       actualState = STOPGAME;
-      turnOffLeds();
+      turnOnLeds();
       break;
     }
     case CMD_TURN_OFF_LEDS: {

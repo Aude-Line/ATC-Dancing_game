@@ -14,9 +14,11 @@
 
 #define PERIOD_BUTTON 200 // 100ms
 #define PERIOD_COMM 20 // 100ms
-#define DEFAULT_PLAY_TIME 4000 // 2s
+#define DEFAULT_PLAY_TIME 2000 // 2s
 #define MIN_PLAY_TIME 500 // 0.5s
 #define MAX_PLAY_TIME 8000 // 8s
+#define MIN_PLAY_DURATION 30000 // 30s
+#define MAX_PLAY_DURATION 300000 // 5min
 #define ALL_MODULES ((1 << NBR_SLAVES)-1) // Setting 1 to all slaves
 
 // the possible state of the master, the modes should be just after the STOPGAME
@@ -42,6 +44,7 @@ bool isAtLeastOnePlayerPresent();
 void assignPlayerToModule(const PayloadFromSlaveStruct& payload);
 uint8_t readGameModeFromPot();
 uint16_t readNormalSpeedFromPot();
+unsigned long readPlayTimeFromPot();
 bool sendPayloadToSlave(PayloadFromMasterStruct& payload, uint8_t slaveID);
 void sendCommand(MasterCommand command, uint8_t receiversBitmask);
 void sendScore(uint8_t playerId, uint16_t score);
@@ -58,6 +61,8 @@ RF24 radio(CE_PIN, CSN_PIN);
 Button StartButton(START_BUTTON_PIN, START_LED_PIN);
 Button SetUpButton(SETUP_BUTTON_PIN, SETUP_LED_PIN);
 State actualState = STOPGAME;
+unsigned long startTime = 0;
+unsigned long playTimeDuration = 0;
 
 //semaphore for serial communication
 SemaphoreHandle_t xSerialSemaphore;
@@ -94,6 +99,7 @@ void setup() {
   //Initialize the potentiometers
   pinMode(POTENTIOMETER_MODE_PIN, INPUT);
   pinMode(POTENTIOMETER_NORMAL_SPEED_PIN, INPUT);
+  pinMode(POTENTIOMETER_PLAY_TIME_PIN, INPUT);
 
   // initialize the transceiver on the SPI bus
   if (!radio.begin()) {
@@ -208,6 +214,8 @@ void TaskHandleButtons(void *pvParameters) {
             players[i].score = 0;
           }
           sendCommand(CMD_START_GAME, ALL_MODULES); // Telling all the slaves to enter game mode
+          playTimeDuration = readPlayTimeFromPot();
+          startTime = millis();
         }
 
         break;
@@ -297,6 +305,13 @@ void TaskAssignButtons(void *pvParameters) {
   uint16_t waitTime = DEFAULT_PLAY_TIME; // 2s (temps d'attente par défaut)
 
   for(;;){
+    unsigned long currentTime = millis();
+    if((currentTime - startTime) > playTimeDuration && playTimeDuration > 0){
+      sendCommand(CMD_STOP_GAME, ALL_MODULES);
+      actualState = STOPGAME;
+      playTimeDuration = 0;
+    }
+
     if(actualState >= GAMEMODE1 && actualState < NBR_GAMEMODES){
       sendCommand(CMD_TURN_OFF_LEDS, ALL_MODULES); // Telling all the slaves to turn off their LEDS
       vTaskDelay(500 / portTICK_PERIOD_MS); // wait a bit to let the slaves turn off their LEDs
@@ -394,6 +409,11 @@ uint8_t readGameModeFromPot() {
 uint16_t readNormalSpeedFromPot() {
   uint16_t speed = map(analogRead(POTENTIOMETER_NORMAL_SPEED_PIN), 0, 1023, MAX_PLAY_TIME, MIN_PLAY_TIME);
   return constrain(speed, MIN_PLAY_TIME, MAX_PLAY_TIME);
+}
+
+unsigned long readPlayTimeFromPot() {
+  uint16_t speed = map(analogRead(POTENTIOMETER_PLAY_TIME_PIN), 0, 1023, MIN_PLAY_DURATION, MAX_PLAY_DURATION);
+  return constrain(speed, MIN_PLAY_DURATION, MAX_PLAY_DURATION);
 }
 
 bool sendPayloadToSlave(PayloadFromMasterStruct& payload, uint8_t slaveID){
