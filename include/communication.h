@@ -12,7 +12,8 @@ enum MasterCommand : uint8_t {
     CMD_BUTTONS,
     CMD_SCORE,
     CMD_START_GAME,
-    CMD_TURN_OFF_LEDS
+    CMD_TURN_OFF_LEDS,
+    CMD_END_PLAY_TIME
 };
 
 enum SCORE : uint8_t {

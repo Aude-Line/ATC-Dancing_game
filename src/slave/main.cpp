@@ -358,6 +358,11 @@ void handlePayloadFromMaster(const PayloadFromMasterStruct& payloadFromMaster) {
     }
     case CMD_STOP_GAME: {
       actualState = STOPGAME;
+      turnOffLeds();
+      break;
+    }
+    case CMD_END_PLAY_TIME: {
+      actualState = STOPGAME;
       turnOnLeds();
       break;
     }

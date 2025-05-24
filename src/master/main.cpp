@@ -193,6 +193,7 @@ void TaskHandleButtons(void *pvParameters) {
             xSemaphoreGive(xSerialSemaphore);
           }
           actualState = STOPGAME;
+          playTimeDuration = 0;
           sendCommand(CMD_STOP_GAME, ALL_MODULES); // Telling all the slaves to enter game mode
         }else{
           // Set the game mode based on the potentiometer value to be able to do it easily without needing to reasign the modules
@@ -223,6 +224,7 @@ void TaskHandleButtons(void *pvParameters) {
       case JUST_RELEASED: { //Pause the game
         StartButton.turnOffLed();
         actualState = STOPGAME;
+        playTimeDuration = 0;
         sendCommand(CMD_STOP_GAME, ALL_MODULES); // Telling all the slaves to enter game mode
         if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
             Serial.println(F("Game paused"));
@@ -307,7 +309,7 @@ void TaskAssignButtons(void *pvParameters) {
   for(;;){
     unsigned long currentTime = millis();
     if((currentTime - startTime) > playTimeDuration && playTimeDuration > 0){
-      sendCommand(CMD_STOP_GAME, ALL_MODULES);
+      sendCommand(CMD_END_PLAY_TIME, ALL_MODULES);
       actualState = STOPGAME;
       playTimeDuration = 0;
     }
