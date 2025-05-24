@@ -46,7 +46,6 @@ Button* buttons[NB_COLORS];
 GameState actualState = STOPGAME;
 uint16_t score = 0;
 Player idPlayer = NONE;
-uint8_t volumeBuzzer = 15; // Default volume for the buzzer, can be changed by the master
 
 //semaphore for serial communication
 SemaphoreHandle_t xSerialSemaphore;
@@ -99,7 +98,6 @@ void setup() {
   buttons[BLUE] = new Button(BLUE_BUTTON_PIN, BLUE_LED_PIN, &aw);
   buttons[YELLOW] = new Button(YELLOW_BUTTON_PIN, YELLOW_LED_PIN, &aw);
   pinMode(BUZZER_PIN, OUTPUT);
-  analogWrite(BUZZER_PIN, volumeBuzzer); // Set the buzzer volume
 
   // Initialize the radio
   Serial.print(F("address to send: "));
@@ -310,17 +308,6 @@ bool getPayloadFromMaster(PayloadFromMasterStruct& payloadFromMaster) {
 }
 
 void handlePayloadFromMaster(const PayloadFromMasterStruct& payloadFromMaster) {
-  if (payloadFromMaster.volume != volumeBuzzer) {
-    if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
-      Serial.print(F("Setting buzzer volume to: "));
-      Serial.println(payloadFromMaster.volume);
-      xSemaphoreGive(xSerialSemaphore);
-    }
-    volumeBuzzer = payloadFromMaster.volume;
-    pinMode(BUZZER_PIN, OUTPUT);
-    analogWrite(BUZZER_PIN, volumeBuzzer); // Set the buzzer volume
-  }
-
   switch (payloadFromMaster.command) {
     case CMD_SETUP: {
       idPlayer = NONE;

@@ -94,7 +94,6 @@ void setup() {
   //Initialize the potentiometers
   pinMode(POTENTIOMETER_MODE_PIN, INPUT);
   pinMode(POTENTIOMETER_NORMAL_SPEED_PIN, INPUT);
-  pinMode(POTENTIOMETER_VOLUME_PIN, INPUT);
 
   // initialize the transceiver on the SPI bus
   if (!radio.begin()) {
@@ -395,14 +394,7 @@ uint16_t readNormalSpeedFromPot() {
   return constrain(speed, MIN_PLAY_TIME, MAX_PLAY_TIME);
 }
 
-uint8_t readVolumeFromPot() {
-  uint8_t volume = map(analogRead(POTENTIOMETER_VOLUME_PIN), 0, 1023, 0, 255);
-  return constrain(volume, 0, 255);
-}
-
 bool sendPayloadToSlave(PayloadFromMasterStruct& payload, uint8_t slaveID){
-  payload.volume = readVolumeFromPot(); // Read the volume from the potentiometer
-
   bool report = false;
 
   //variables for debug

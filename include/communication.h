@@ -27,7 +27,6 @@ struct PayloadFromMasterStruct{
   MasterCommand command = CMD_STOP_GAME;
   uint8_t buttonsToPress = 0; //Masque de bits pour savoir quels boutons appuyer (0x01 = bouton 1, 0x02 = bouton 2, 0x04 = bouton 3, 0x08 = bouton 4)
   bool score = SCORE_FAILED; //true si le joueur a réussi, false sinon
-  uint8_t volume = 0;
 };
 struct PayloadFromSlaveStruct{
   uint8_t slaveId = 0; //id du slave qui envoie le message
