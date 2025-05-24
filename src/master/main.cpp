@@ -42,7 +42,7 @@ bool isAtLeastOnePlayerPresent();
 void assignPlayerToModule(const PayloadFromSlaveStruct& payload);
 uint8_t readGameModeFromPot();
 uint16_t readNormalSpeedFromPot();
-bool sendPayloadToSlave(PayloadFromMasterStruct& payload, uint8_t slave);
+bool sendPayloadToSlave(PayloadFromMasterStruct& payload, uint8_t slaveID);
 void sendCommand(MasterCommand command, uint8_t receiversBitmask);
 void sendScore(uint8_t playerId, uint16_t score);
 void sendScoreToSlave(uint8_t slave, uint16_t score);
@@ -93,7 +93,8 @@ void setup() {
 
   //Initialize the potentiometers
   pinMode(POTENTIOMETER_MODE_PIN, INPUT);
-  pinMode(POTENTIOMETER_DIFFICULTY_PIN, INPUT);
+  pinMode(POTENTIOMETER_NORMAL_SPEED_PIN, INPUT);
+  pinMode(POTENTIOMETER_VOLUME_PIN, INPUT);
 
   // initialize the transceiver on the SPI bus
   if (!radio.begin()) {
@@ -253,6 +254,8 @@ void TaskHandleButtons(void *pvParameters) {
       xSemaphoreGive(xSerialSemaphore);
     }
     */
+    
+    
     vTaskDelay(PERIOD_BUTTON / portTICK_PERIOD_MS);
   }
 }
@@ -278,6 +281,8 @@ void TaskReadFromSlaves(void *pvParameters) {
       xSemaphoreGive(xSerialSemaphore);
     }
     */
+    
+    
     vTaskDelay(PERIOD_COMM / portTICK_PERIOD_MS);
   }
 }
@@ -321,6 +326,8 @@ void TaskAssignButtons(void *pvParameters) {
       xSemaphoreGive(xSerialSemaphore);
     }
     */
+    
+    
     vTaskDelay(waitTime /portTICK_PERIOD_MS);
   }
 }
@@ -352,6 +359,13 @@ bool isAtLeastOnePlayerPresent() {
 }
 
 void assignPlayerToModule(const PayloadFromSlaveStruct& payload) {
+  Player lastPlayer = modules[payload.slaveId].playerOfModule;
+  Player newPlayer = payload.playerId;
+  modules[payload.slaveId].playerOfModule = newPlayer;
+  if(lastPlayer == newPlayer) {
+    // If the player is the same as the one assigned to the module, do nothing
+    return;
+  }
   if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
     Serial.print(F("Assigning module "));
     Serial.print(payload.slaveId);
@@ -359,9 +373,6 @@ void assignPlayerToModule(const PayloadFromSlaveStruct& payload) {
     Serial.println(payload.playerId);
     xSemaphoreGive(xSerialSemaphore);
   }
-  Player lastPlayer = modules[payload.slaveId].playerOfModule;
-  Player newPlayer = payload.playerId;
-  modules[payload.slaveId].playerOfModule = newPlayer;
   if(lastPlayer != NONE) {
     // If the module was already assigned to a player, remove it from the previous player
     players[lastPlayer].modules &= ~(1 << payload.slaveId); // Remove the module from the previous player
@@ -384,7 +395,14 @@ uint16_t readNormalSpeedFromPot() {
   return constrain(speed, MIN_PLAY_TIME, MAX_PLAY_TIME);
 }
 
-bool sendPayloadToSlave(PayloadFromMasterStruct& payload, uint8_t slave){
+uint8_t readVolumeFromPot() {
+  uint8_t volume = map(analogRead(POTENTIOMETER_VOLUME_PIN), 0, 1023, 0, 255);
+  return constrain(volume, 0, 255);
+}
+
+bool sendPayloadToSlave(PayloadFromMasterStruct& payload, uint8_t slaveID){
+  payload.volume = readVolumeFromPot(); // Read the volume from the potentiometer
+
   bool report = false;
 
   //variables for debug
@@ -393,7 +411,7 @@ bool sendPayloadToSlave(PayloadFromMasterStruct& payload, uint8_t slave){
 
   if(xSemaphoreTake(xRadioSemaphore, (TickType_t)20) == pdTRUE) {  // timeout 10 ticks
     radio.stopListening();
-    radio.openWritingPipe(addresses[0]+slave);
+    radio.openWritingPipe(addresses[0]+slaveID);
     start_timer = micros();                  // start the timer
     report = radio.write(&payload, sizeof(payload));  // transmit & save the report
     end_timer = micros();                    // end the timer
@@ -407,9 +425,9 @@ bool sendPayloadToSlave(PayloadFromMasterStruct& payload, uint8_t slave){
   if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
     Serial.println(F("\n==========NEW TRANSMISSION=========="));
     Serial.print(F("Slave index: "));
-    Serial.println(slave);
+    Serial.println(slaveID);
     Serial.print(F("Writing pipe address: 0x"));
-    print64Hex(addresses[1]+slave);
+    print64Hex(addresses[1]+slaveID);
     printPayloadFromMasterStruct(payload);
     if (report) {
       Serial.print(F("✅ Transmission successful in "));
@@ -506,7 +524,6 @@ void handlePayloadFromSlave(const PayloadFromSlaveStruct& payload) {
     // If the player is not the same as the one assigned to the module, assign it
     // To easily correct setup errors
     assignPlayerToModule(payload);
-    return;
   }
 
   switch (actualState) {

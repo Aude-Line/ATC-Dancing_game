@@ -21,7 +21,6 @@
 
 #define PERIOD_BUTTON 100 // 100ms
 #define PERIOD_COMM 50 // 100ms
-#define VOLUME_BUZZER 3 // Volume of the buzzer (0-15)
 
 enum GameState{STOPGAME, SETUP, GAME}; // Added different game modes as states
 
@@ -47,6 +46,7 @@ Button* buttons[NB_COLORS];
 GameState actualState = STOPGAME;
 uint16_t score = 0;
 Player idPlayer = NONE;
+uint8_t volumeBuzzer = 15; // Default volume for the buzzer, can be changed by the master
 
 //semaphore for serial communication
 SemaphoreHandle_t xSerialSemaphore;
@@ -99,7 +99,7 @@ void setup() {
   buttons[BLUE] = new Button(BLUE_BUTTON_PIN, BLUE_LED_PIN, &aw);
   buttons[YELLOW] = new Button(YELLOW_BUTTON_PIN, YELLOW_LED_PIN, &aw);
   pinMode(BUZZER_PIN, OUTPUT);
-  analogWrite(BUZZER_PIN, VOLUME_BUZZER); // Set the buzzer volume
+  analogWrite(BUZZER_PIN, volumeBuzzer); // Set the buzzer volume
 
   // Initialize the radio
   Serial.print(F("address to send: "));
@@ -225,6 +225,7 @@ void TaskHandleButtons(void *pvParameters) {
       xSemaphoreGive(xSerialSemaphore);
     }
     */
+    
     vTaskDelay(PERIOD_BUTTON / portTICK_PERIOD_MS);
   }
 }
@@ -283,34 +284,43 @@ bool sendPayloadToMaster(SlaveButtonsState buttonsPressed=BUTTONS_RELEASED) {
   return send;
 }
 
-bool getPayloadFromMaster(PayloadFromMasterStruct& payload) {
+bool getPayloadFromMaster(PayloadFromMasterStruct& payloadFromMaster) {
   bool result = false;
 
   if (xSemaphoreTake(xRadioSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
     if (radio.available()) {
       uint8_t bytes = radio.getDynamicPayloadSize();
-      radio.read(&payload, bytes);
+      radio.read(&payloadFromMaster, bytes);
       result = true;
     }
     xSemaphoreGive(xRadioSemaphore);
   }
 
   // Print the payload on the serial monitor for debugging
-  /*
+  
   if(result){
     if (xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
       Serial.println(F("\n==NEW RECEPTION=="));
       printPayloadFromMasterStruct(payloadFromMaster);
-      Serial.println(F("Payload from master:"));
-      Serial.println(payloadFromMaster.command);
       xSemaphoreGive(xSerialSemaphore);
     }
   }
-  */
+  
   return result;
 }
 
 void handlePayloadFromMaster(const PayloadFromMasterStruct& payloadFromMaster) {
+  if (payloadFromMaster.volume != volumeBuzzer) {
+    if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
+      Serial.print(F("Setting buzzer volume to: "));
+      Serial.println(payloadFromMaster.volume);
+      xSemaphoreGive(xSerialSemaphore);
+    }
+    volumeBuzzer = payloadFromMaster.volume;
+    pinMode(BUZZER_PIN, OUTPUT);
+    analogWrite(BUZZER_PIN, volumeBuzzer); // Set the buzzer volume
+  }
+
   switch (payloadFromMaster.command) {
     case CMD_SETUP: {
       idPlayer = NONE;
