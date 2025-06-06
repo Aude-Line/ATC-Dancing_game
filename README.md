@@ -9,6 +9,6 @@ We are actively working on adding detailed instructions, diagrams, and documenta
 - Full assembly instructions (hardware + wiring)
 - Code usage and configuration guide
 - Game modes and customization
-- Troubleshooting and FAQs
+- Code overview
 
 Stay tuned, and thank you for your patience!
