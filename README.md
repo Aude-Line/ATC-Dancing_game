@@ -1,4 +1,4 @@
-# LumiTap – Interactive Reaction Game
+# LumiTap – Inclusive Dance Game
 
 Welcome to the official repository for **LumiTap**, an inclusive and interactive reaction game designed for both fun and accessibility.
 
