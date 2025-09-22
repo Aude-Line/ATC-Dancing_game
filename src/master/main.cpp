@@ -18,7 +18,7 @@
 #define MIN_PLAY_TIME 500 // 0.5s
 #define MAX_PLAY_TIME 8000 // 8s
 #define MIN_PLAY_DURATION 30000 // 30s
-#define MAX_PLAY_DURATION 300000 // 5min
+#define MAX_PLAY_DURATION 180000 // 3min
 #define ALL_MODULES ((1 << NBR_SLAVES)-1) // Setting 1 to all slaves
 
 // the possible state of the master, the modes should be just after the STOPGAME
@@ -404,18 +404,38 @@ void assignPlayerToModule(const PayloadFromSlaveStruct& payload) {
 }
 
 uint8_t readGameModeFromPot() {
-  uint8_t mode = map(analogRead(POTENTIOMETER_MODE_PIN), 0, 1023, FIRST_GAMEMODE, LAST_GAMEMODE);
+  uint16_t val = analogRead(POTENTIOMETER_MODE_PIN);
+  uint8_t nbModes = LAST_GAMEMODE - FIRST_GAMEMODE + 1;
+  // proportion dans [0,1]
+  float ratio = (float)val / 1023.0f;
+  // calcul du mode (avec arrondi au plus proche)
+  uint8_t mode = (uint8_t)round(ratio * (nbModes - 1)) + FIRST_GAMEMODE;
   return constrain(mode, FIRST_GAMEMODE, LAST_GAMEMODE);
 }
 
 uint16_t readNormalSpeedFromPot() {
-  uint16_t speed = map(analogRead(POTENTIOMETER_NORMAL_SPEED_PIN), 0, 1023, MAX_PLAY_TIME, MIN_PLAY_TIME);
+  uint16_t val = analogRead(POTENTIOMETER_NORMAL_SPEED_PIN);
+  uint32_t plage = MAX_PLAY_TIME - MIN_PLAY_TIME;
+  // proportion dans [0,1]
+  float ratio = 1 - (float)val / 1023.0f;
+  // calcul du mode (avec arrondi au plus proche)
+  uint16_t speed = (uint16_t)round(ratio * plage) + MIN_PLAY_TIME;
   return constrain(speed, MIN_PLAY_TIME, MAX_PLAY_TIME);
 }
 
 unsigned long readPlayTimeFromPot() {
-  uint16_t speed = map(analogRead(POTENTIOMETER_PLAY_TIME_PIN), 0, 1023, MIN_PLAY_DURATION, MAX_PLAY_DURATION);
-  return constrain(speed, MIN_PLAY_DURATION, MAX_PLAY_DURATION);
+  uint16_t val = analogRead(POTENTIOMETER_PLAY_TIME_PIN);
+  uint32_t plage = MAX_PLAY_DURATION - MIN_PLAY_DURATION;
+  // proportion dans [0,1]
+  float ratio = (float)val / 1023.0f;
+  // calcul du mode (avec arrondi au plus proche)
+  uint32_t duration = (uint32_t)round(ratio * plage) + MIN_PLAY_DURATION;
+  if(xSemaphoreTake(xSerialSemaphore, (TickType_t)10) == pdTRUE) {  // timeout 10 ticks
+    Serial.print(F("Game time duration set to: "));
+    Serial.print(duration);
+    xSemaphoreGive(xSerialSemaphore);
+  }
+  return constrain(duration, MIN_PLAY_DURATION, MAX_PLAY_DURATION);
 }
 
 bool sendPayloadToSlave(PayloadFromMasterStruct& payload, uint8_t slaveID){
