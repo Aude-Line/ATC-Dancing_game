@@ -28,7 +28,7 @@ const uint8_t LAST_GAMEMODE = NBR_GAMEMODES - STOPGAME - 1;
 
 struct PlayerStruct{
   uint8_t modules; //mask
-  uint8_t nbrOfModules; //calcul dynamique avec modules
+  uint8_t nbrOfModules; //calcul dynamique avec modules 
   uint16_t score;
 };
 struct ModuleStruct{
